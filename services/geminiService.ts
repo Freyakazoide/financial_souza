@@ -14,11 +14,11 @@ export const analyzeSpendingPatterns = async (transactions: Transaction[]): Prom
     return [];
   }
   
-  const prompt = `Analyze this list of personal financial transactions and identify recurring spending patterns, like hidden subscriptions or frequent habits. Do not include fixed monthly bills. For each pattern, identify the merchant, describe the frequency, calculate the total amount, and provide a brief insight.
+  const prompt = `Analise esta lista de transações financeiras pessoais e identifique padrões de gastos recorrentes, como assinaturas ocultas ou hábitos frequentes. Não inclua contas mensais fixas. Para cada padrão, identifique o estabelecimento, descreva a frequência, calcule o valor total e forneça uma breve análise.
   
-  Transactions: ${JSON.stringify(variableTransactions.map(t => ({ description: t.description, amount: t.amount, date: t.date })))}
+  Transações: ${JSON.stringify(variableTransactions.map(t => ({ description: t.description, amount: t.amount, date: t.date })))}
   
-  Provide the output in JSON format.`;
+  Forneça a saída em formato JSON.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -33,19 +33,19 @@ export const analyzeSpendingPatterns = async (transactions: Transaction[]): Prom
             properties: {
               merchant: {
                 type: Type.STRING,
-                description: 'The name of the merchant or service provider (e.g., "Netflix", "iFood", "Uber").',
+                description: 'O nome do estabelecimento ou provedor de serviço (ex: "Netflix", "iFood", "Uber").',
               },
               frequency: {
                 type: Type.STRING,
-                description: "A human-readable description of how often the spending occurs (e.g., '12 times last month', 'around the 10th of each month').",
+                description: "Uma descrição legível da frequência com que o gasto ocorre (ex: '12 vezes no último mês', 'por volta do dia 10 de cada mês').",
               },
               totalSpent: {
                 type: Type.NUMBER,
-                description: 'The total amount spent for this pattern in the provided data.',
+                description: 'O valor total gasto para este padrão nos dados fornecidos.',
               },
               insight: {
                 type: Type.STRING,
-                description: "A brief, actionable summary of the spending pattern.",
+                description: "Um resumo breve e acionável do padrão de gastos.",
               },
             },
             required: ["merchant", "frequency", "totalSpent", "insight"],
@@ -61,10 +61,10 @@ export const analyzeSpendingPatterns = async (transactions: Transaction[]): Prom
     console.error("Error analyzing spending patterns with Gemini:", error);
     // Gracefully return an empty array or a user-friendly error pattern
     return [{
-      merchant: "Error",
+      merchant: "Erro",
       frequency: "-",
       totalSpent: 0,
-      insight: "Could not analyze spending patterns. Please check the API key and try again."
+      insight: "Não foi possível analisar os padrões de gastos. Verifique a chave da API e tente novamente."
     }];
   }
 };
@@ -83,13 +83,13 @@ export const suggestCategoriesForTransactions = async (
 
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  const prompt = `Based on the following list of financial transaction descriptions and a list of available categories, suggest the most appropriate category for each transaction.
+  const prompt = `Com base na seguinte lista de descrições de transações financeiras e uma lista de categorias disponíveis, sugira a categoria mais apropriada para cada transação.
   
-  Available Categories: ${JSON.stringify(categories.filter(c => c !== 'Renda'))}
+  Categorias Disponíveis: ${JSON.stringify(categories.filter(c => c !== 'Renda'))}
   
-  Transactions to categorize: ${JSON.stringify(transactions)}
+  Transações para categorizar: ${JSON.stringify(transactions)}
   
-  Provide the output as a JSON array, where each object contains the transaction 'id' and the 'suggestedCategory'. Do not suggest the 'Renda' category for expenses.`;
+  Forneça a saída como um array JSON, onde cada objeto contém o 'id' da transação e a 'suggestedCategory'. Não sugira a categoria 'Renda' para despesas.`;
 
   try {
     const response = await ai.models.generateContent({
@@ -152,11 +152,11 @@ export const predictMonthlySpending = async (
         return {}; // Not enough data for a meaningful prediction
     }
     
-    const prompt = `Based on the following 90 days of transaction history, predict the total spending for the **current calendar month** for each of these key categories: ${JSON.stringify(categories)}. Consider monthly trends, recurring variable payments, and typical spending velocity.
+    const prompt = `Com base no seguinte histórico de transações dos últimos 90 dias, preveja o gasto total para o **mês calendário atual** para cada uma destas categorias principais: ${JSON.stringify(categories)}. Considere tendências mensais, pagamentos variáveis recorrentes e a velocidade típica de gastos.
   
-    Transaction History: ${JSON.stringify(recentTransactions)}
+    Histórico de Transações: ${JSON.stringify(recentTransactions)}
     
-    Provide the output as a JSON array, with each object containing the 'category' and the 'predictedAmount' for this month.`;
+    Forneça a saída como um array JSON, com cada objeto contendo a 'category' e o 'predictedAmount' para este mês.`;
 
     try {
         const response = await ai.models.generateContent({

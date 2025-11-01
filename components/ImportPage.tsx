@@ -86,11 +86,11 @@ const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransact
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-slate-100">Import & Reconcile</h1>
+            <h1 className="text-3xl font-bold text-slate-100">Importar e Conciliar</h1>
             
-            <Card title="Paste Bank Statement">
+            <Card title="Cole o Extrato Bancário">
                  <div className="flex flex-col gap-4">
-                    <p className="text-slate-400">Copy the data from your bank statement (including the header) and paste it below.</p>
+                    <p className="text-slate-400">Copie os dados do seu extrato bancário (incluindo o cabeçalho) e cole abaixo.</p>
                     <textarea 
                       className="w-full h-48 p-3 bg-neutral/50 border border-neutral rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm text-slate-200 placeholder-slate-400 font-mono"
                       placeholder="Data	Valor	Identificador	Descrição..."
@@ -99,15 +99,15 @@ const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransact
                     />
                     <div className="text-right">
                         <Button onClick={handleProcessPastedData} disabled={!pastedContent}>
-                            Process Data
+                            Processar Dados
                         </Button>
                     </div>
                 </div>
             </Card>
 
             {uncategorizedTransactions.length > 0 && (
-                <Card title="Reconciliation">
-                    <p className="text-sm text-slate-400 mb-4">The system has automatically handled fixed bills and internal transfers. Please categorize the remaining transactions. Suggestions based on your history have been pre-filled.</p>
+                <Card title="Conciliação">
+                    <p className="text-sm text-slate-400 mb-4">O sistema tratou automaticamente as contas fixas e transferências internas. Por favor, categorize as transações restantes. Sugestões baseadas no seu histórico foram pré-preenchidas.</p>
                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                         {uncategorizedTransactions.map(t => {
                             const state = categorized[t.id] || {};
@@ -122,24 +122,24 @@ const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransact
                                             className="w-full bg-transparent p-1 -ml-1 border border-transparent rounded focus:border-primary focus:outline-none focus:bg-slate-800 text-slate-200 font-semibold"
                                             disabled={state.ignored}
                                         />
-                                        <p className="text-sm text-slate-400 pl-1">{t.date}</p>
+                                        <p className="text-sm text-slate-400 pl-1">{new Date(t.date + 'T12:00:00Z').toLocaleDateString('pt-BR')}</p>
                                     </div>
                                     <div className="font-bold text-lg text-danger">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.amount)}</div>
                                     <div className="md:col-span-2 flex gap-4 items-end">
                                         <Select 
-                                            label="Category"
+                                            label="Categoria"
                                             value={state.category || t.suggestedCategory || ''}
                                             onChange={e => updateTransaction(t.id, { category: e.target.value, ignored: false })}
                                             disabled={state.ignored}
                                         >
-                                            <option value="">Select Category</option>
+                                            <option value="">Selecione uma Categoria</option>
                                             {categories.filter(c => c !== 'Renda').map(c => <option key={c} value={c}>{c}</option>)}
                                         </Select>
                                         <div className="flex items-end pb-2">
                                             <button 
                                                 onClick={() => updateTransaction(t.id, { ignored: !state.ignored })}
                                                 className="p-1 rounded-full hover:bg-slate-600 transition-colors"
-                                                title={state.ignored ? "Include" : "Ignore"}
+                                                title={state.ignored ? "Incluir" : "Ignorar"}
                                             >
                                                 {state.ignored ? <CheckCircleIcon className="h-6 w-6 text-success" /> : <XCircleIcon className="h-6 w-6 text-slate-500 hover:text-danger transition-colors" />}
                                             </button>
@@ -151,7 +151,7 @@ const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransact
                     </div>
                      <div className="mt-6 text-right">
                         <Button onClick={handleConfirm} disabled={!allCategorized}>
-                            Confirm Transactions
+                            Confirmar Transações
                         </Button>
                     </div>
                 </Card>

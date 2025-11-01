@@ -315,7 +315,7 @@ const App: React.FC = () => {
 
     const handleDeleteCategory = (name: string) => {
         if (name === 'Renda' || transactions.some(t => t.category === name)) {
-            alert(`Category "${name}" cannot be deleted because it is in use or protected.`);
+            alert(`A categoria "${name}" não pode ser excluída porque está em uso ou é protegida.`);
             return;
         }
         setCategories(prev => prev.filter(c => c !== name));
@@ -337,7 +337,7 @@ const App: React.FC = () => {
 
     const handleDeleteSource = (name: string) => {
         if (transactions.some(t => t.source === name)) {
-            alert(`Source "${name}" cannot be deleted because it is currently in use.`);
+            alert(`A origem "${name}" não pode ser excluída porque está atualmente em uso.`);
             return;
         }
         setSources(prev => prev.filter(s => s !== name));
@@ -465,12 +465,12 @@ const App: React.FC = () => {
         <div className="min-h-screen flex flex-col sm:flex-row">
             <nav className="sm:w-56 bg-base-100 p-2 sm:p-4 order-last sm:order-first fixed bottom-0 left-0 right-0 sm:relative sm:min-h-screen border-t sm:border-t-0 sm:border-r border-neutral">
                 <div className="flex sm:flex-col justify-around sm:justify-start sm:space-y-2">
-                    <NavItem targetView="dashboard" icon={<DashboardIcon />} label="Dashboard" />
-                    <NavItem targetView="history" icon={<HistoryIcon />} label="History & Reports" />
-                    <NavItem targetView="cashflow" icon={<CashFlowIcon />} label="Cash Flow" />
-                    <NavItem targetView="savings" icon={<SavingsIcon />} label="Savings" />
-                    <NavItem targetView="import" icon={<ImportIcon />} label="Import" />
-                    <NavItem targetView="settings" icon={<SettingsIcon />} label="Settings" />
+                    <NavItem targetView="dashboard" icon={<DashboardIcon />} label="Painel" />
+                    <NavItem targetView="history" icon={<HistoryIcon />} label="Histórico" />
+                    <NavItem targetView="cashflow" icon={<CashFlowIcon />} label="Fluxo de Caixa" />
+                    <NavItem targetView="savings" icon={<SavingsIcon />} label="Metas" />
+                    <NavItem targetView="import" icon={<ImportIcon />} label="Importar" />
+                    <NavItem targetView="settings" icon={<SettingsIcon />} label="Configurações" />
                 </div>
             </nav>
             <main className="flex-1 p-4 sm:p-8 pb-20 sm:pb-8 overflow-y-auto">

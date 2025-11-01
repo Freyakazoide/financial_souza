@@ -38,12 +38,14 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
 }
 
-export const Input: React.FC<InputProps> = ({ label, id, ...props }) => (
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(({ label, id, ...props }, ref) => (
   <div className="w-full">
     <label htmlFor={id} className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
-    <input id={id} className="w-full px-3 py-2 bg-neutral/50 border border-neutral rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm text-slate-200 placeholder-slate-400" {...props} />
+    <input ref={ref} id={id} className="w-full px-3 py-2 bg-neutral/50 border border-neutral rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm text-slate-200 placeholder-slate-400" {...props} />
   </div>
-);
+));
+Input.displayName = 'Input';
+
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label: string;

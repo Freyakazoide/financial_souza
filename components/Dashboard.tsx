@@ -54,25 +54,25 @@ const ManualEntryForm: React.FC<{onAddTransaction: DashboardProps['onAddTransact
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
-            <h3 className="text-lg font-bold text-slate-100">Add Manual Transaction</h3>
+            <h3 className="text-lg font-bold text-slate-100">Adicionar Transação Manual</h3>
             
             <div className="flex gap-2 rounded-lg bg-neutral/50 p-1">
-                <button type="button" onClick={() => setEntryType('expense')} className={`flex-1 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'expense' ? 'bg-danger text-white' : 'text-slate-400 hover:bg-neutral'}`}>Expense</button>
-                <button type="button" onClick={() => setEntryType('income')} className={`flex-1 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'income' ? 'bg-success text-white' : 'text-slate-400 hover:bg-neutral'}`}>Income</button>
+                <button type="button" onClick={() => setEntryType('expense')} className={`flex-1 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'expense' ? 'bg-danger text-white' : 'text-slate-400 hover:bg-neutral'}`}>Despesa</button>
+                <button type="button" onClick={() => setEntryType('income')} className={`flex-1 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'income' ? 'bg-success text-white' : 'text-slate-400 hover:bg-neutral'}`}>Receita</button>
             </div>
 
-            <Input label="Description" id="desc" type="text" value={description} onChange={e => setDescription(e.target.value)} required />
-            <Input label="Amount" id="amount" type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />
-            <Input label="Date" id="date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
-            <Select label="Category" id="category" value={category} onChange={e => setCategory(e.target.value)} required>
+            <Input label="Descrição" id="desc" type="text" value={description} onChange={e => setDescription(e.target.value)} required />
+            <Input label="Valor" id="amount" type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />
+            <Input label="Data" id="date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
+            <Select label="Categoria" id="category" value={category} onChange={e => setCategory(e.target.value)} required>
                 {categories.map(c => <option key={c} value={c}>{c}</option>)}
             </Select>
-            <Select label="Source" id="source" value={source} onChange={e => setSource(e.target.value)} required>
+            <Select label="Origem" id="source" value={source} onChange={e => setSource(e.target.value)} required>
                 {sources.map(s => <option key={s} value={s}>{s}</option>)}
             </Select>
             <div className="flex justify-end space-x-2 pt-4">
-                <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-                <Button type="submit">Add</Button>
+                <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+                <Button type="submit">Adicionar</Button>
             </div>
         </form>
     );
@@ -143,7 +143,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
             .filter(t => t.entryType === 'expense' && t.category !== 'Poupança' && t.category !== 'Dívidas')
             // FIX: Explicitly type the accumulator for the reduce function to prevent type inference issues.
             // This resolves downstream errors where the `spent` property was not being correctly identified as a number.
-            .reduce<Record<string, number>>((acc, t) => {
+            .reduce((acc: Record<string, number>, t) => {
                 acc[t.category] = (acc[t.category] || 0) + t.amount;
                 return acc;
             }, {});
@@ -180,19 +180,19 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
         setEditingIncome(null);
     }
 
-    const viewingMonthName = viewingDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    const viewingMonthName = viewingDate.toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
 
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
                     <Button onClick={() => onMonthChange('prev')} variant="ghost" className="p-2"><ChevronLeftIcon /></Button>
-                    <h1 className="text-3xl font-bold text-slate-100">{viewingMonthName}</h1>
+                    <h1 className="text-3xl font-bold text-slate-100 capitalize">{viewingMonthName}</h1>
                     <Button onClick={() => onMonthChange('next')} variant="ghost" className="p-2"><ChevronRightIcon /></Button>
                 </div>
                 <Button onClick={() => setShowManualForm(true)} className="flex items-center space-x-2">
                     <PlusIcon />
-                    <span>New Transaction</span>
+                    <span>Nova Transação</span>
                 </Button>
             </div>
             
@@ -206,29 +206,29 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="border-t-4 border-success">
-                    <h3 className="text-lg font-semibold text-slate-300">Total Revenue</h3>
+                    <h3 className="text-lg font-semibold text-slate-300">Receita Total</h3>
                     <p className="text-3xl font-bold text-white">{formatCurrency(totalIncome)}</p>
                 </Card>
                 <Card className="border-t-4 border-danger">
-                    <h3 className="text-lg font-semibold text-slate-300">Total Expenses</h3>
+                    <h3 className="text-lg font-semibold text-slate-300">Despesas Totais</h3>
                     <p className="text-3xl font-bold text-white">{formatCurrency(totalExpenses)}</p>
                 </Card>
                 <Card className="border-t-4 border-info">
-                    <h3 className="text-lg font-semibold text-slate-300">Current Balance</h3>
+                    <h3 className="text-lg font-semibold text-slate-300">Saldo Atual</h3>
                     <p className={`text-3xl font-bold ${balance >= 0 ? 'text-white' : 'text-danger'}`}>{formatCurrency(balance)}</p>
                 </Card>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3 flex flex-col gap-6">
-                    <Card title="Fixed Bills Status" className="flex-1">
+                    <Card title="Status das Contas Fixas" className="flex-1">
                         <div className="flex justify-around mb-4 text-center">
                             <div>
-                                <p className="text-slate-400">Paid</p>
+                                <p className="text-slate-400">Pago</p>
                                 <p className="text-2xl font-bold text-success">{formatCurrency(paidAmount)}</p>
                             </div>
                             <div>
-                                <p className="text-slate-400">Pending</p>
+                                <p className="text-slate-400">Pendente</p>
                                 <p className="text-2xl font-bold text-danger">{formatCurrency(pendingAmount)}</p>
                             </div>
                         </div>
@@ -238,7 +238,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                                     <div>
                                         <p className="font-semibold text-slate-200">{bill.name}</p>
                                         <p className="text-sm text-slate-400">
-                                            Due Day: {bill.dueDay} - 
+                                            Vencimento: Dia {bill.dueDay} - 
                                             <span className={`ml-1 font-bold ${
                                                 bill.status === TransactionStatus.Paid ? 'text-success' : 
                                                 bill.status === TransactionStatus.Overdue ? 'text-danger' : 'text-warning'
@@ -264,7 +264,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                                         )}
 
                                         {bill.status !== TransactionStatus.Paid ? (
-                                            <Button variant="ghost" className="px-3 py-1 text-xs" onClick={() => onSetBillPaid(bill.id, new Date().toISOString().split('T')[0])}>Pay</Button>
+                                            <Button variant="ghost" className="px-3 py-1 text-xs" onClick={() => onSetBillPaid(bill.id, new Date().toISOString().split('T')[0])}>Pagar</Button>
                                         ) : (
                                             <CheckCircleIcon className="h-6 w-6 text-success"/>
                                         )}
@@ -273,14 +273,14 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                             ))}
                         </div>
                     </Card>
-                    <Card title="Recurring Income Status" className="flex-1">
+                    <Card title="Status das Rendas Recorrentes" className="flex-1">
                         <div className="flex justify-around mb-4 text-center">
                             <div>
-                                <p className="text-slate-400">Received</p>
+                                <p className="text-slate-400">Recebido</p>
                                 <p className="text-2xl font-bold text-success">{formatCurrency(receivedAmount)}</p>
                             </div>
                             <div>
-                                <p className="text-slate-400">Pending</p>
+                                <p className="text-slate-400">Pendente</p>
                                 <p className="text-2xl font-bold text-warning">{formatCurrency(pendingIncomeAmount)}</p>
                             </div>
                         </div>
@@ -290,7 +290,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                                     <div>
                                         <p className="font-semibold text-slate-200">{income.name}</p>
                                         <p className="text-sm text-slate-400">
-                                            Expected Day: {income.incomeDay} - 
+                                            Recebimento: Dia {income.incomeDay} - 
                                             <span className={`ml-1 font-bold ${
                                                 income.status === IncomeStatus.Received ? 'text-success' : 'text-warning'
                                             }`}>{income.status}</span>
@@ -315,7 +315,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                                         )}
 
                                         {income.status !== IncomeStatus.Received ? (
-                                            <Button variant="ghost" className="px-3 py-1 text-xs" onClick={() => onSetIncomeReceived(income.id, new Date().toISOString().split('T')[0])}>Receive</Button>
+                                            <Button variant="ghost" className="px-3 py-1 text-xs" onClick={() => onSetIncomeReceived(income.id, new Date().toISOString().split('T')[0])}>Receber</Button>
                                         ) : (
                                             <CheckCircleIcon className="h-6 w-6 text-success"/>
                                         )}
@@ -326,7 +326,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                     </Card>
                 </div>
                 <div className="lg:col-span-2 flex flex-col gap-6">
-                    <Card title="Spending by Category">
+                    <Card title="Gastos por Categoria">
                         {spendingWithBudgets.length > 0 ? (
                         <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
                             {spendingWithBudgets.map(item => {
@@ -352,7 +352,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                             })}
                         </div>
                         ) : (
-                            <div className="flex items-center justify-center h-full text-slate-400">No expenses to display.</div>
+                            <div className="flex items-center justify-center h-full text-slate-400">Nenhuma despesa para exibir.</div>
                         )}
                     </Card>
                     <Card title="Análise de Renda">
@@ -398,7 +398,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                             </div>
                         </div>
                     </Card>
-                     <Card title="Savings Goals">
+                     <Card title="Metas de Poupança">
                         {savingsGoals.length > 0 ? (
                             <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
                                 {savingsGoals.map(goal => {
@@ -423,14 +423,14 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                             </div>
                         ) : (
                             <div className="flex items-center justify-center h-full text-slate-400">
-                                <p>No savings goals yet. Add one in the Savings page!</p>
+                                <p>Nenhuma meta de poupança ainda. Adicione uma na página de Metas!</p>
                             </div>
                         )}
                     </Card>
                 </div>
             </div>
             
-            <Card title="Recent Variable Transactions">
+            <Card title="Últimas Transações Variáveis">
                 <div className="max-h-80 overflow-y-auto pr-2">
                     {transactions.length > 0 ? (
                         <ul className="space-y-3">
@@ -450,7 +450,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                             ))}
                         </ul>
                     ) : (
-                        <div className="flex items-center justify-center h-24 text-slate-400">No transactions this month.</div>
+                        <div className="flex items-center justify-center h-24 text-slate-400">Nenhuma transação este mês.</div>
                     )}
                 </div>
             </Card>

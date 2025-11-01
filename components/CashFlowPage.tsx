@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { Transaction, MonthlyBill, MonthlyIncome, TransactionStatus, IncomeStatus, FixedBill, RecurringIncome } from '../types';
 import { Card, Button, Input } from './common';
@@ -28,7 +28,7 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean, payload?:
       <div className="bg-slate-700 p-3 border border-slate-600 rounded-lg shadow-xl text-sm">
         <p className="font-bold text-slate-200">{label}</p>
         <p className="text-primary font-semibold mt-1">
-          Balance: <span className="text-white">{formatCurrency(payload[0].value)}</span>
+          Saldo: <span className="text-white">{formatCurrency(payload[0].value)}</span>
         </p>
       </div>
     );
@@ -41,6 +41,7 @@ const CashFlowPage: React.FC<CashFlowPageProps> = ({ allTransactions, monthlyBil
     const [scenarioName, setScenarioName] = useState('');
     const [scenarioAmount, setScenarioAmount] = useState('');
     const [scenarioDay, setScenarioDay] = useState('');
+    const scenarioNameInputRef = useRef<HTMLInputElement>(null);
 
     const handleAddScenario = (type: 'income' | 'expense') => {
         const amount = parseFloat(scenarioAmount);
@@ -56,6 +57,7 @@ const CashFlowPage: React.FC<CashFlowPageProps> = ({ allTransactions, monthlyBil
             setScenarioName('');
             setScenarioAmount('');
             setScenarioDay('');
+            scenarioNameInputRef.current?.focus();
         }
     };
     
@@ -188,27 +190,27 @@ const CashFlowPage: React.FC<CashFlowPageProps> = ({ allTransactions, monthlyBil
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-slate-100">Cash Flow Projection</h1>
+            <h1 className="text-3xl font-bold text-slate-100">Projeção de Fluxo de Caixa</h1>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 space-y-6">
                     {lowestBalancePoint && (
-                        <Card title="Projection Summary" className="border-l-4 border-info">
+                        <Card title="Resumo da Projeção" className="border-l-4 border-info">
                             <div className="flex flex-col sm:flex-row justify-around text-center gap-4">
                                 <div>
-                                    <h3 className="text-lg font-semibold text-slate-300">Current Balance</h3>
+                                    <h3 className="text-lg font-semibold text-slate-300">Saldo Atual</h3>
                                     <p className="text-2xl font-bold text-white">{formatCurrency(projectionData[0]?.balance || 0)}</p>
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-semibold text-slate-300">Lowest Projected Balance</h3>
+                                    <h3 className="text-lg font-semibold text-slate-300">Menor Saldo Projetado</h3>
                                     <p className={`text-2xl font-bold ${lowestBalancePoint.balance < 0 ? 'text-danger' : 'text-warning'}`}>{formatCurrency(lowestBalancePoint.balance)}</p>
-                                    <p className="text-sm text-slate-400">on {new Date(lowestBalancePoint.fullDate + 'T12:00:00Z').toLocaleDateString('pt-BR', {day: 'numeric', month: 'long'})}</p>
+                                    <p className="text-sm text-slate-400">em {new Date(lowestBalancePoint.fullDate + 'T12:00:00Z').toLocaleDateString('pt-BR', {day: 'numeric', month: 'long'})}</p>
                                 </div>
                             </div>
                         </Card>
                     )}
                     <Card>
-                        <h2 className="text-xl font-bold text-slate-100 mb-4">30-Day Balance Forecast</h2>
+                        <h2 className="text-xl font-bold text-slate-100 mb-4">Previsão de Saldo para 30 Dias</h2>
                         <ResponsiveContainer width="100%" height={400}>
                             <AreaChart
                                 data={projectionData}
@@ -231,42 +233,42 @@ const CashFlowPage: React.FC<CashFlowPageProps> = ({ allTransactions, monthlyBil
                     </Card>
                 </div>
                 <div className="lg:col-span-1">
-                    <Card title="Scenario Simulator" className="border-l-4 border-accent h-full">
+                    <Card title="Simulador de Cenários" className="border-l-4 border-accent h-full">
                         <div className="flex flex-col h-full">
                             <div className="space-y-4">
-                                <Input label="Description" placeholder="e.g., Freelance Project" value={scenarioName} onChange={e => setScenarioName(e.target.value)} />
+                                <Input ref={scenarioNameInputRef} label="Descrição" placeholder="ex: Projeto Freelance" value={scenarioName} onChange={e => setScenarioName(e.target.value)} />
                                 <div className="grid grid-cols-2 gap-4">
-                                    <Input label="Amount" type="number" placeholder="500.00" value={scenarioAmount} onChange={e => setScenarioAmount(e.target.value)} />
-                                    <Input label="Day" type="number" min="1" max="31" placeholder="15" value={scenarioDay} onChange={e => setScenarioDay(e.target.value)} />
+                                    <Input label="Valor" type="number" placeholder="500.00" value={scenarioAmount} onChange={e => setScenarioAmount(e.target.value)} />
+                                    <Input label="Dia" type="number" min="1" max="31" placeholder="15" value={scenarioDay} onChange={e => setScenarioDay(e.target.value)} />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <Button onClick={() => handleAddScenario('income')} variant="secondary" className="bg-success/20 text-success hover:bg-success/40">Add Income</Button>
-                                    <Button onClick={() => handleAddScenario('expense')} variant="secondary" className="bg-danger/20 text-danger hover:bg-danger/40">Add Expense</Button>
+                                    <Button onClick={() => handleAddScenario('income')} variant="secondary" className="bg-success/20 text-success hover:bg-success/40">Adicionar Receita</Button>
+                                    <Button onClick={() => handleAddScenario('expense')} variant="secondary" className="bg-danger/20 text-danger hover:bg-danger/40">Adicionar Despesa</Button>
                                 </div>
                             </div>
                             
                             <hr className="border-neutral my-6"/>
 
                             <div className="flex-grow min-h-[100px]">
-                                <h3 className="text-lg font-semibold text-slate-200 mb-2">Active Scenarios</h3>
+                                <h3 className="text-lg font-semibold text-slate-200 mb-2">Cenários Ativos</h3>
                                 {scenarios.length > 0 ? (
                                     <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
                                         {scenarios.map(s => (
                                             <div key={s.id} className="flex justify-between items-center p-2 bg-neutral/50 rounded-lg">
                                                 <div>
                                                     <p className={`font-semibold ${s.type === 'income' ? 'text-success' : 'text-danger'}`}>{s.name}</p>
-                                                    <p className="text-xs text-slate-400">Day {s.day} - {formatCurrency(s.amount)}</p>
+                                                    <p className="text-xs text-slate-400">Dia {s.day} - {formatCurrency(s.amount)}</p>
                                                 </div>
                                                 <Button onClick={() => handleRemoveScenario(s.id)} variant="danger" className="p-1 h-auto text-xs"><TrashIcon className="w-4 h-4" /></Button>
                                             </div>
                                         ))}
                                         <div className="text-center pt-2">
-                                            <Button onClick={() => setScenarios([])} variant="ghost" size="sm" className="text-xs">Clear All</Button>
+                                            <Button onClick={() => setScenarios([])} variant="ghost" size="sm" className="text-xs">Limpar Tudo</Button>
                                         </div>
                                     </div>
                                 ) : (
                                     <div className="text-center text-slate-400 text-sm py-4">
-                                        <p>Add a hypothetical income or expense to see its impact on your projection.</p>
+                                        <p>Adicione uma receita ou despesa hipotética para ver o impacto na sua projeção.</p>
                                     </div>
                                 )}
                             </div>

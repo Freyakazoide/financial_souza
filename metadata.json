@@ -1,5 +1,5 @@
 {
-  "name": "Personal Finance Manager",
-  "description": "A web-based personal finance management system. It allows manual expense tracking, importing bank statements for analysis and categorization, and rigorous management of fixed monthly bills. The final result is a detailed history that allows for the generation of reports and analysis of spending patterns.",
+  "name": "Gerenciador de Finanças Pessoais",
+  "description": "Um sistema de gerenciamento de finanças pessoais baseado na web. Ele permite o rastreamento manual de despesas, a importação de extratos bancários para análise e categorização, e o gerenciamento rigoroso de contas mensais fixas. O resultado final é um histórico detalhado que permite a geração de relatórios e a análise de padrões de gastos.",
   "requestFramePermissions": []
 }

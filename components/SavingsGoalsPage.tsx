@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { SavingsGoal, Transaction } from '../types';
 import { Card, Button, Input, Select } from './common';
@@ -29,14 +30,14 @@ const DepositModal: React.FC<{ goal: SavingsGoal; sources: string[]; onDeposit: 
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
             <div className="bg-base-100 p-6 rounded-lg shadow-xl w-full max-w-md border border-neutral">
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <h3 className="text-lg font-bold text-slate-100">Deposit to: <span className="text-primary">{goal.name}</span></h3>
-                    <Input label="Amount" id="deposit-amount" type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required autoFocus />
-                    <Select label="From Source" id="deposit-source" value={source} onChange={e => setSource(e.target.value)} required>
+                    <h3 className="text-lg font-bold text-slate-100">Depositar em: <span className="text-primary">{goal.name}</span></h3>
+                    <Input label="Valor" id="deposit-amount" type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required autoFocus />
+                    <Select label="Da Origem" id="deposit-source" value={source} onChange={e => setSource(e.target.value)} required>
                         {sources.map(s => <option key={s} value={s}>{s}</option>)}
                     </Select>
                     <div className="flex justify-end space-x-2 pt-4">
-                        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-                        <Button type="submit">Confirm Deposit</Button>
+                        <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+                        <Button type="submit">Confirmar Depósito</Button>
                     </div>
                 </form>
             </div>
@@ -67,7 +68,7 @@ const SavingsGoalsPage: React.FC<SavingsGoalsPageProps> = ({ savingsGoals, setSa
     };
     
     const handleDeleteGoal = (id: string) => {
-        if (window.confirm("Are you sure you want to delete this goal? This will not delete associated transactions, but will unlink them.")) {
+        if (window.confirm("Tem certeza que deseja excluir esta meta? Isso não excluirá as transações associadas, mas irá desvinculá-las.")) {
              setSavingsGoals(prev => prev.filter(g => g.id !== id));
         }
     };
@@ -76,7 +77,7 @@ const SavingsGoalsPage: React.FC<SavingsGoalsPageProps> = ({ savingsGoals, setSa
         if (!depositGoal) return;
         
         onAddTransaction({
-            description: `Deposit to savings: ${depositGoal.name}`,
+            description: `Depósito na poupança: ${depositGoal.name}`,
             amount,
             date: new Date().toISOString().split('T')[0],
             category: 'Poupança',
@@ -99,23 +100,23 @@ const SavingsGoalsPage: React.FC<SavingsGoalsPageProps> = ({ savingsGoals, setSa
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-slate-100">Savings Goals</h1>
+            <h1 className="text-3xl font-bold text-slate-100">Metas de Poupança</h1>
             
-            <Card title="Create New Goal">
+            <Card title="Criar Nova Meta">
                 <form onSubmit={handleAddGoal} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
                     <div className="sm:col-span-2">
-                        <Input label="Goal Name" type="text" placeholder="e.g., New Car, Vacation" value={newGoalName} onChange={e => setNewGoalName(e.target.value)} required />
+                        <Input label="Nome da Meta" type="text" placeholder="ex: Carro Novo, Férias" value={newGoalName} onChange={e => setNewGoalName(e.target.value)} required />
                     </div>
-                    <Input label="Target Amount" type="number" step="0.01" placeholder="5000.00" value={newGoalTarget} onChange={e => setNewGoalTarget(e.target.value)} required />
+                    <Input label="Valor Alvo" type="number" step="0.01" placeholder="5000.00" value={newGoalTarget} onChange={e => setNewGoalTarget(e.target.value)} required />
                     <div className="sm:col-span-3 text-right">
                         <Button type="submit" className="flex items-center justify-center ml-auto">
-                            <PlusIcon className="h-5 w-5 mr-2" /> Add Goal
+                            <PlusIcon className="h-5 w-5 mr-2" /> Adicionar Meta
                         </Button>
                     </div>
                 </form>
             </Card>
 
-            <Card title="Your Goals">
+            <Card title="Suas Metas">
                 {goalsWithProgress.length > 0 ? (
                     <div className="space-y-6">
                         {goalsWithProgress.map(goal => {
@@ -125,10 +126,10 @@ const SavingsGoalsPage: React.FC<SavingsGoalsPageProps> = ({ savingsGoals, setSa
                                     <div className="flex justify-between items-start">
                                         <div>
                                             <h3 className="text-xl font-bold text-slate-100">{goal.name}</h3>
-                                            <p className="text-slate-300 font-semibold">{formatCurrency(goal.currentAmount)} <span className="text-slate-400">of {formatCurrency(goal.targetAmount)}</span></p>
+                                            <p className="text-slate-300 font-semibold">{formatCurrency(goal.currentAmount)} <span className="text-slate-400">de {formatCurrency(goal.targetAmount)}</span></p>
                                         </div>
                                         <div className="flex gap-2">
-                                            <Button onClick={() => setDepositGoal(goal)}>Deposit</Button>
+                                            <Button onClick={() => setDepositGoal(goal)}>Depositar</Button>
                                             <Button variant="danger" className="p-2 h-auto" onClick={() => handleDeleteGoal(goal.id)}><TrashIcon /></Button>
                                         </div>
                                     </div>
@@ -145,8 +146,8 @@ const SavingsGoalsPage: React.FC<SavingsGoalsPageProps> = ({ savingsGoals, setSa
                     </div>
                 ) : (
                     <div className="text-center text-slate-400 py-8">
-                        <p>You haven't set any savings goals yet.</p>
-                        <p>Use the form above to get started!</p>
+                        <p>Você ainda não definiu nenhuma meta de poupança.</p>
+                        <p>Use o formulário acima para começar!</p>
                     </div>
                 )}
             </Card>
