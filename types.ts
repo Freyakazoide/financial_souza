@@ -87,13 +87,6 @@ export interface UncategorizedTransaction {
   importId: string;
 }
 
-export interface SpendingPattern {
-  merchant: string;
-  frequency: string;
-  totalSpent: number;
-  insight: string;
-}
-
 export interface Budget {
   category: string;
   amount: number;
@@ -105,7 +98,15 @@ export interface SavingsGoal {
   targetAmount: number;
 }
 
-export type View = 'dashboard' | 'history' | 'import' | 'settings' | 'savings';
+// FIX: Add SpendingPattern type, which is used in geminiService.ts.
+export interface SpendingPattern {
+  merchant: string;
+  frequency: string;
+  totalSpent: number;
+  insight: string;
+}
+
+export type View = 'dashboard' | 'history' | 'import' | 'settings' | 'savings' | 'cashflow';
 
 export interface ParsedTransaction {
   date: string;

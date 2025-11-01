@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Transaction, MonthlyBill, SpendingPattern } from '../types';
+import { Transaction, MonthlyBill } from '../types';
 import { Card, Button, Input, Select } from './common';
 
 interface HistoryPageProps {
@@ -10,16 +10,13 @@ interface HistoryPageProps {
   monthlyBills: MonthlyBill[];
   categories: string[];
   sources: string[];
-  spendingPatterns: SpendingPattern[] | null;
-  onAnalyzePatterns: () => void;
-  isLoadingPatterns: boolean;
 }
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
 type SortableKeys = 'date' | 'description' | 'category' | 'amount';
 
-const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, sources, spendingPatterns, onAnalyzePatterns, isLoadingPatterns }) => {
+const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, sources }) => {
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [filterSource, setFilterSource] = useState<string>('all');
@@ -165,38 +162,6 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, 
                         <Bar dataKey="total" fill="#2dd4bf" name="Total Spent" />
                     </BarChart>
                 </ResponsiveContainer>
-            </Card>
-
-            <Card title="Spending Pattern Analysis (AI)">
-                {isLoadingPatterns ? (
-                    <div className="flex justify-center items-center p-10">
-                        <div className="loader"></div>
-                        <p className="ml-4 text-slate-400">Analyzing patterns...</p>
-                    </div>
-                ) : spendingPatterns && spendingPatterns.length > 0 ? (
-                    <div className="space-y-4">
-                        {spendingPatterns.map((pattern, index) => (
-                            <div key={index} className="p-4 bg-neutral/30 rounded-lg border border-neutral">
-                                <h4 className="font-bold text-lg text-primary">{pattern.merchant}</h4>
-                                <p className="text-slate-300"><strong className="font-semibold text-slate-200">Insight:</strong> {pattern.insight}</p>
-                                <div className="flex justify-between items-baseline mt-2 text-sm">
-                                    <span className="text-slate-400"><strong>Frequency:</strong> {pattern.frequency}</span>
-                                    <span className="text-lg font-bold text-danger">{formatCurrency(pattern.totalSpent)}</span>
-                                </div>
-                            </div>
-                        ))}
-                         <div className="text-center pt-4">
-                            <Button onClick={onAnalyzePatterns} variant="secondary">Analyze Again</Button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex flex-col items-center text-center p-4">
-                        <p className="mb-4 text-slate-400">Discover hidden subscriptions and spending habits in your variable expenses using AI.</p>
-                        <Button onClick={onAnalyzePatterns} disabled={isLoadingPatterns}>
-                            Analyze Spending Patterns
-                        </Button>
-                    </div>
-                )}
             </Card>
         </div>
     );

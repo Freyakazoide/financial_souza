@@ -126,3 +126,71 @@ export const suggestCategoriesForTransactions = async (
     return {}; 
   }
 };
+
+export const predictMonthlySpending = async (
+    transactions: Transaction[],
+    categories: string[]
+): Promise<Record<string, number>> => {
+    if (!process.env.API_KEY) {
+        throw new Error("API_KEY environment variable not set");
+    }
+    if (transactions.length < 10 || categories.length === 0) {
+        return {};
+    }
+
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    // Use last 90 days of data for more relevant predictions
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const recentTransactions = transactions.filter(t => 
+        new Date(t.date) >= ninetyDaysAgo && t.entryType === 'expense'
+    ).map(t => ({ amount: t.amount, date: t.date, category: t.category, description: t.description }));
+
+    if (recentTransactions.length < 10) {
+        return {}; // Not enough data for a meaningful prediction
+    }
+    
+    const prompt = `Based on the following 90 days of transaction history, predict the total spending for the **current calendar month** for each of these key categories: ${JSON.stringify(categories)}. Consider monthly trends, recurring variable payments, and typical spending velocity.
+  
+    Transaction History: ${JSON.stringify(recentTransactions)}
+    
+    Provide the output as a JSON array, with each object containing the 'category' and the 'predictedAmount' for this month.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            category: { type: Type.STRING },
+                            predictedAmount: { type: Type.NUMBER },
+                        },
+                        required: ["category", "predictedAmount"],
+                    },
+                },
+            },
+        });
+
+        const jsonString = response.text.trim();
+        const predictions: { category: string; predictedAmount: number }[] = JSON.parse(jsonString);
+        
+        const predictionMap: Record<string, number> = {};
+        predictions.forEach(p => {
+            if (categories.includes(p.category)) {
+                predictionMap[p.category] = p.predictedAmount;
+            }
+        });
+        return predictionMap;
+
+    } catch (error) {
+        console.error("Error predicting spending with Gemini:", error);
+        return {};
+    }
+};

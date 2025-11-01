@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, FixedBill, MonthlyBill, Transaction, TransactionStatus, TransactionType, UncategorizedTransaction, SpendingPattern, ParsedTransaction, RecurringIncome, MonthlyIncome, IncomeStatus, RecurringTransaction, Budget, SavingsGoal } from './types';
-import { DashboardIcon, HistoryIcon, ImportIcon, SettingsIcon, SavingsIcon } from './components/icons';
+import { View, FixedBill, MonthlyBill, Transaction, TransactionStatus, TransactionType, UncategorizedTransaction, ParsedTransaction, RecurringIncome, MonthlyIncome, IncomeStatus, RecurringTransaction, Budget, SavingsGoal } from './types';
+import { DashboardIcon, HistoryIcon, ImportIcon, SettingsIcon, SavingsIcon, CashFlowIcon } from './components/icons';
 import Dashboard from './components/Dashboard';
 import HistoryPage from './components/HistoryPage';
 import ImportPage from './components/ImportPage';
 import SettingsPage from './components/SettingsPage';
 import SavingsGoalsPage from './components/SavingsGoalsPage';
-import { analyzeSpendingPatterns, suggestCategoriesForTransactions } from './services/geminiService';
+import CashFlowPage from './components/CashFlowPage';
 
 const initialFixedBills: FixedBill[] = [
     { id: 'fb1', name: 'Telefone [TIM] [DANI]', defaultValue: 74.00, dueDay: 10 },
@@ -48,9 +48,6 @@ const App: React.FC = () => {
     const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
     const [uncategorized, setUncategorized] = useState<UncategorizedTransaction[]>([]);
     const [categoryPatterns, setCategoryPatterns] = useState<Record<string, string>>({});
-    const [spendingPatterns, setSpendingPatterns] = useState<SpendingPattern[] | null>(null);
-    const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
-    const [isCategorizing, setIsCategorizing] = useState(false);
 
     const generateId = useCallback(() => Math.random().toString(36).substring(2, 9), []);
 
@@ -144,6 +141,15 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fixedBills, recurringIncomes, recurringTransactions, viewingDate]); 
 
+    useEffect(() => {
+        if (view === 'cashflow') {
+            const nextMonthDate = new Date();
+            nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
+            generateMonthlyBills(nextMonthDate);
+            generateMonthlyIncomes(nextMonthDate);
+        }
+    }, [view, generateMonthlyBills, generateMonthlyIncomes]);
+
     const handleUpdateMonthlyBillAmount = (billId: string, newAmount: number) => {
       setMonthlyBills(prevBills => prevBills.map(b => b.id === billId ? { ...b, amount: newAmount } : b));
     };
@@ -216,7 +222,7 @@ const App: React.FC = () => {
         setTransactions(prev => [...prev, { ...transaction, id: generateId(), type: TransactionType.Variable }]);
     };
 
-    const processImportedTransactions = async (parsed: ParsedTransaction[]) => {
+    const processImportedTransactions = (parsed: ParsedTransaction[]) => {
       setUncategorized([]);
       const trulyUncategorized: UncategorizedTransaction[] = [];
       const allImportIds = new Set(transactions.map(t => t.importId));
@@ -274,25 +280,6 @@ const App: React.FC = () => {
           }
       });
       
-      if (trulyUncategorized.length > 0) {
-        setIsCategorizing(true);
-        try {
-          const suggestions = await suggestCategoriesForTransactions(
-            trulyUncategorized.map(t => ({ id: t.id, description: t.description, amount: t.amount })),
-            categories
-          );
-          trulyUncategorized.forEach(t => {
-            if (suggestions[t.id]) {
-              t.suggestedCategory = suggestions[t.id];
-            }
-          });
-        } catch (error) {
-          console.error("Failed to get AI category suggestions:", error);
-        } finally {
-          setIsCategorizing(false);
-        }
-      }
-
       setUncategorized(trulyUncategorized);
     };
 
@@ -309,26 +296,6 @@ const App: React.FC = () => {
         });
         setCategoryPatterns(newPatterns);
         setView('dashboard');
-    };
-
-    const handleAnalyzePatterns = async () => {
-        setIsLoadingPatterns(true);
-        setSpendingPatterns(null);
-        try {
-            const patterns = await analyzeSpendingPatterns(transactions);
-            setSpendingPatterns(patterns);
-        } catch (error) {
-            console.error("Failed to analyze spending patterns:", error);
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred. Please check the console.";
-            setSpendingPatterns([{
-              merchant: "Analysis Failed",
-              frequency: "-",
-              totalSpent: 0,
-              insight: errorMessage
-            }]);
-        } finally {
-            setIsLoadingPatterns(false);
-        }
     };
 
     // Category and Source Management
@@ -420,9 +387,12 @@ const App: React.FC = () => {
                   monthlyBills={monthlyBills}
                   categories={categories}
                   sources={sources}
-                  spendingPatterns={spendingPatterns}
-                  onAnalyzePatterns={handleAnalyzePatterns}
-                  isLoadingPatterns={isLoadingPatterns}
+                />;
+            case 'cashflow':
+                return <CashFlowPage
+                    allTransactions={transactions}
+                    monthlyBills={monthlyBills}
+                    monthlyIncomes={monthlyIncomes}
                 />;
             case 'import':
                 return <ImportPage 
@@ -431,7 +401,6 @@ const App: React.FC = () => {
                     onConfirm={confirmTransactions}
                     categories={categories}
                     sources={sources}
-                    isCategorizing={isCategorizing}
                 />;
             case 'settings':
                 return <SettingsPage 
@@ -498,6 +467,7 @@ const App: React.FC = () => {
                 <div className="flex sm:flex-col justify-around sm:justify-start sm:space-y-2">
                     <NavItem targetView="dashboard" icon={<DashboardIcon />} label="Dashboard" />
                     <NavItem targetView="history" icon={<HistoryIcon />} label="History & Reports" />
+                    <NavItem targetView="cashflow" icon={<CashFlowIcon />} label="Cash Flow" />
                     <NavItem targetView="savings" icon={<SavingsIcon />} label="Savings" />
                     <NavItem targetView="import" icon={<ImportIcon />} label="Import" />
                     <NavItem targetView="settings" icon={<SettingsIcon />} label="Settings" />

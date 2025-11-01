@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { MonthlyBill, Transaction, TransactionStatus, MonthlyIncome, IncomeStatus, Budget, SavingsGoal } from '../types';
 import { Card, Button, Input, Select } from './common';
@@ -83,7 +84,6 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
     const [editingIncome, setEditingIncome] = useState<{id: string, amount: string} | null>(null);
 
     const { totalIncome, totalExpenses, balance } = useMemo(() => {
-        // FIX: Ensure amounts are treated as numbers during reduction.
         const income = transactions.filter(t => t.entryType === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
         const expenses = transactions.filter(t => t.entryType === 'expense' && t.category !== 'Poupança').reduce((acc, t) => acc + Number(t.amount), 0);
         return { totalIncome: income, totalExpenses: expenses, balance: income - expenses };
@@ -92,10 +92,8 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
     const { paidAmount, pendingAmount } = useMemo(() => {
         return monthlyBills.reduce((acc, bill) => {
             if (bill.status === TransactionStatus.Paid) {
-                // FIX: Ensure bill amount is a number before addition.
                 acc.paidAmount += Number(bill.amount);
             } else {
-                // FIX: Ensure bill amount is a number before addition.
                 acc.pendingAmount += Number(bill.amount);
             }
             return acc;
@@ -105,10 +103,8 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
     const { receivedAmount, pendingIncomeAmount } = useMemo(() => {
         return monthlyIncomes.reduce((acc, income) => {
             if (income.status === IncomeStatus.Received) {
-                // FIX: Ensure income amount is a number before addition.
                 acc.receivedAmount += Number(income.amount);
             } else {
-                // FIX: Ensure income amount is a number before addition.
                 acc.pendingIncomeAmount += Number(income.amount);
             }
             return acc;
@@ -120,17 +116,14 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
 
         budgets.forEach(b => {
             if (b.category !== 'Renda') {
-                // FIX: Ensure budget amount is a number.
                 categoryMap[b.category] = { spent: 0, budget: Number(b.amount) };
             }
         });
 
         transactions.filter(t => t.entryType === 'expense').forEach(t => {
             if (categoryMap[t.category]) {
-                // FIX: Ensure transaction amount is a number before addition.
                 categoryMap[t.category].spent += Number(t.amount);
             } else if (t.category !== 'Renda' && t.category !== 'Dívidas' && t.category !== 'Poupança') {
-                 // FIX: Ensure transaction amount is a number.
                  categoryMap[t.category] = { spent: Number(t.amount), budget: undefined };
             }
         });
@@ -148,12 +141,12 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
     
         const categorySpending = transactions
             .filter(t => t.entryType === 'expense' && t.category !== 'Poupança' && t.category !== 'Dívidas')
-            .reduce((acc, t) => {
-                // FIX: Ensure transaction amount is a number before addition.
-// FIX: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
-                acc[t.category] = (acc[t.category] || 0) + Number(t.amount);
+            // FIX: Explicitly type the accumulator for the reduce function to prevent type inference issues.
+            // This resolves downstream errors where the `spent` property was not being correctly identified as a number.
+            .reduce<Record<string, number>>((acc, t) => {
+                acc[t.category] = (acc[t.category] || 0) + t.amount;
                 return acc;
-            }, {} as Record<string, number>);
+            }, {});
     
         return Object.entries(categorySpending)
             .map(([name, spent]) => ({
@@ -339,6 +332,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                             {spendingWithBudgets.map(item => {
                                 const percentage = item.budget ? Math.min((item.spent / item.budget) * 100, 100) : 0;
                                 const barColor = percentage >= 95 ? 'bg-danger' : percentage >= 75 ? 'bg-warning' : 'bg-success';
+
                                 return (
                                     <div key={item.name}>
                                         <div className="flex justify-between items-baseline mb-1">
@@ -349,7 +343,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                                             </span>
                                         </div>
                                         {item.budget && (
-                                            <div className="w-full bg-neutral rounded-full h-2.5">
+                                            <div className="w-full bg-neutral rounded-full h-2.5 relative">
                                                 <div className={`${barColor} h-2.5 rounded-full transition-all duration-500`} style={{ width: `${percentage}%` }}></div>
                                             </div>
                                         )}
@@ -410,7 +404,6 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                                 {savingsGoals.map(goal => {
                                     const currentAmount = allTransactions
                                         .filter(t => t.goalId === goal.id)
-                                        // FIX: Ensure transaction amount is a number before reduction.
                                         .reduce((sum, t) => sum + Number(t.amount), 0);
                                     const percentage = Math.min((currentAmount / goal.targetAmount) * 100, 100);
                                     return (

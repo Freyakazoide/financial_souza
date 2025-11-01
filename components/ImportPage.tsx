@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
-import { UncategorizedTransaction, Transaction, TransactionType, ParsedTransaction } from '../types';
+import { UncategorizedTransaction, Transaction, ParsedTransaction } from '../types';
 import { Card, Button, Select } from './common';
 import { CheckCircleIcon, XCircleIcon } from './icons';
 
@@ -10,7 +10,6 @@ interface ImportPageProps {
   onConfirm: (transactions: Omit<Transaction, 'id'|'type'>[]) => void;
   categories: string[];
   sources: string[];
-  isCategorizing?: boolean;
 }
 
 const parsePastedText = (content: string): ParsedTransaction[] => {
@@ -49,7 +48,7 @@ const parsePastedText = (content: string): ParsedTransaction[] => {
 };
 
 
-const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransactions, onConfirm, categories, sources, isCategorizing }) => {
+const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransactions, onConfirm, categories, sources }) => {
     const [pastedContent, setPastedContent] = useState('');
     const [categorized, setCategorized] = useState<Record<string, Partial<{ category: string; source: string; ignored: boolean; description: string }>>>({});
 
@@ -106,16 +105,9 @@ const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransact
                 </div>
             </Card>
 
-            {isCategorizing ? (
-                 <Card title="Reconciliation">
-                    <div className="flex flex-col items-center justify-center p-10">
-                        <div className="loader"></div>
-                        <p className="mt-4 text-slate-400">AI is suggesting categories...</p>
-                    </div>
-                </Card>
-            ) : uncategorizedTransactions.length > 0 && (
+            {uncategorizedTransactions.length > 0 && (
                 <Card title="Reconciliation">
-                    <p className="text-sm text-slate-400 mb-4">The system has automatically handled fixed bills and internal transfers. Please categorize the remaining transactions. AI suggestions have been pre-filled.</p>
+                    <p className="text-sm text-slate-400 mb-4">The system has automatically handled fixed bills and internal transfers. Please categorize the remaining transactions. Suggestions based on your history have been pre-filled.</p>
                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                         {uncategorizedTransactions.map(t => {
                             const state = categorized[t.id] || {};
