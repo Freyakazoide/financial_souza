@@ -66,3 +66,10 @@ export const ChevronRightIcon = ({ className }: { className?: string }) => (
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
     </svg>
 );
+
+export const SavingsIcon = ({ className }: { className?: string }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className || "h-6 w-6"} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 11.25v8.25a1.5 1.5 0 01-1.5 1.5H5.25a1.5 1.5 0 01-1.5-1.5v-8.25M12 4.875A3.375 3.375 0 0012 18.375m0-13.5a3.375 3.375 0 013.375 3.375M12 4.875c0 1.863-1.512 3.375-3.375 3.375M12 18.375c0-1.863 1.512-3.375 3.375-3.375m-3.375 3.375c-1.863 0-3.375-1.512-3.375-3.375m16.125-4.875h.375a1.5 1.5 0 011.5 1.5v2.25a1.5 1.5 0 01-1.5 1.5h-.375m-16.125 0h-.375a1.5 1.5 0 01-1.5-1.5v-2.25a1.5 1.5 0 011.5-1.5h.375M15.375 18.375a1.125 1.125 0 11-2.25 0 1.125 1.125 0 012.25 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 14.25v-2.625" />
+    </svg>
+);

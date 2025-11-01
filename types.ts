@@ -54,6 +54,16 @@ export interface MonthlyBill {
   dueDay: number;
 }
 
+export interface RecurringTransaction {
+  id: string;
+  description: string;
+  amount: number;
+  category: string;
+  source: string;
+  entryType: 'income' | 'expense';
+  day: number; // Day of the month
+}
+
 export interface Transaction {
   id:string;
   description: string;
@@ -64,6 +74,8 @@ export interface Transaction {
   type: TransactionType;
   entryType: 'income' | 'expense';
   importId?: string; // from bank statement to prevent duplicates
+  recurringTransactionId?: string;
+  goalId?: string;
 }
 
 export interface UncategorizedTransaction {
@@ -82,7 +94,18 @@ export interface SpendingPattern {
   insight: string;
 }
 
-export type View = 'dashboard' | 'history' | 'import' | 'settings';
+export interface Budget {
+  category: string;
+  amount: number;
+}
+
+export interface SavingsGoal {
+  id: string;
+  name: string;
+  targetAmount: number;
+}
+
+export type View = 'dashboard' | 'history' | 'import' | 'settings' | 'savings';
 
 export interface ParsedTransaction {
   date: string;

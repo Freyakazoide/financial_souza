@@ -17,25 +17,70 @@ interface HistoryPageProps {
 
 const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
+type SortableKeys = 'date' | 'description' | 'category' | 'amount';
+
 const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, sources, spendingPatterns, onAnalyzePatterns, isLoadingPatterns }) => {
     const [searchTerm, setSearchTerm] = useState<string>('');
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [filterSource, setFilterSource] = useState<string>('all');
     const [filterStartDate, setFilterStartDate] = useState<string>('');
     const [filterEndDate, setFilterEndDate] = useState<string>('');
+    const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'ascending' | 'descending' }>({ key: 'date', direction: 'descending' });
+
+    const requestSort = (key: SortableKeys) => {
+        let direction: 'ascending' | 'descending' = 'ascending';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const getSortIndicator = (key: SortableKeys) => {
+        if (!sortConfig || sortConfig.key !== key) {
+            return <span className="ml-1 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity">↕</span>;
+        }
+        if (sortConfig.direction === 'ascending') {
+            return <span className="ml-1 text-slate-200">▲</span>;
+        }
+        return <span className="ml-1 text-slate-200">▼</span>;
+    };
 
     const filteredTransactions = useMemo(() => {
-        return allTransactions.filter(t => {
+        let transactionsToProcess = allTransactions.filter(t => {
             const lowerCaseSearch = searchTerm.toLowerCase();
             if (searchTerm && !t.description.toLowerCase().includes(lowerCaseSearch) && !t.category.toLowerCase().includes(lowerCaseSearch)) return false;
             if (filterCategory !== 'all' && t.category !== filterCategory) return false;
             if (filterSource !== 'all' && t.source !== filterSource) return false;
-            // Use string comparison for YYYY-MM-DD dates to avoid timezone issues
             if (filterStartDate && t.date < filterStartDate) return false;
             if (filterEndDate && t.date > filterEndDate) return false;
             return true;
-        }).sort((a, b) => b.date.localeCompare(a.date));
-    }, [allTransactions, searchTerm, filterCategory, filterSource, filterStartDate, filterEndDate]);
+        });
+
+        if (sortConfig) {
+            transactionsToProcess.sort((a, b) => {
+                const aValue = a[sortConfig.key];
+                const bValue = b[sortConfig.key];
+                
+                let compare = 0;
+                if (aValue < bValue) {
+                    compare = -1;
+                } else if (aValue > bValue) {
+                    compare = 1;
+                }
+
+                if (compare !== 0) {
+                    return sortConfig.direction === 'ascending' ? compare : -compare;
+                }
+                
+                if (sortConfig.key !== 'date') {
+                    return b.date.localeCompare(a.date);
+                }
+
+                return 0;
+            });
+        }
+        return transactionsToProcess;
+    }, [allTransactions, searchTerm, filterCategory, filterSource, filterStartDate, filterEndDate, sortConfig]);
 
     const monthlySpendingData = useMemo(() => {
         const data: { [key: string]: number } = {};
@@ -70,23 +115,26 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, 
                         <option value="all">All Categories</option>
                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </Select>
-                    {/* The Source filter might need to be wrapped or the grid adjusted if it gets too crowded */}
-                    {/* <Select label="Source" value={filterSource} onChange={e => setFilterSource(e.target.value)}>
-                        <option value="all">All Sources</option>
-                        {sources.map(s => <option key={s} value={s}>{s}</option>)}
-                    </Select> */}
                 </div>
             </Card>
 
             <Card title="Transaction History">
                 <div className="max-h-96 overflow-y-auto">
                     <table className="min-w-full divide-y divide-neutral">
-                        <thead className="bg-neutral/50">
+                        <thead className="bg-neutral/50 sticky top-0 z-10">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Date</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Description</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Category</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Amount</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider group cursor-pointer" onClick={() => requestSort('date')}>
+                                    <div className="flex items-center">Date {getSortIndicator('date')}</div>
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider group cursor-pointer" onClick={() => requestSort('description')}>
+                                    <div className="flex items-center">Description {getSortIndicator('description')}</div>
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider group cursor-pointer" onClick={() => requestSort('category')}>
+                                    <div className="flex items-center">Category {getSortIndicator('category')}</div>
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider group cursor-pointer" onClick={() => requestSort('amount')}>
+                                    <div className="flex items-center">Amount {getSortIndicator('amount')}</div>
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="bg-base-100 divide-y divide-neutral">

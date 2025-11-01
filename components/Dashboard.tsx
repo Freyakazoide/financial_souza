@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { MonthlyBill, Transaction, TransactionStatus, MonthlyIncome, IncomeStatus } from '../types';
+import { MonthlyBill, Transaction, TransactionStatus, MonthlyIncome, IncomeStatus, Budget, SavingsGoal } from '../types';
 import { Card, Button, Input, Select } from './common';
 import { PlusIcon, CheckCircleIcon, EditIcon, ChevronLeftIcon, ChevronRightIcon } from './icons';
 
@@ -8,6 +7,9 @@ interface DashboardProps {
   monthlyBills: MonthlyBill[];
   monthlyIncomes: MonthlyIncome[];
   transactions: Transaction[];
+  allTransactions: Transaction[];
+  savingsGoals: SavingsGoal[];
+  budgets: Budget[];
   onSetBillPaid: (billId: string, paidDate: string, amount?: number) => void;
   onSetIncomeReceived: (incomeId: string, receivedDate: string, amount?: number) => void;
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'type'>) => void;
@@ -18,8 +20,6 @@ interface DashboardProps {
   viewingDate: Date;
   onMonthChange: (direction: 'next' | 'prev') => void;
 }
-
-const COLORS = ['#2dd4bf', '#99f6e4', '#0d9488', '#facc15', '#f87171', '#38bdf8', '#a78bfa', '#fb923c'];
 
 const formatCurrency = (value?: number | null) => {
     if (value == null || isNaN(value)) {
@@ -77,23 +77,26 @@ const ManualEntryForm: React.FC<{onAddTransaction: DashboardProps['onAddTransact
     );
 };
 
-const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, transactions, onSetBillPaid, onSetIncomeReceived, onAddTransaction, categories, sources, viewingDate, onMonthChange, onUpdateMonthlyBillAmount, onUpdateMonthlyIncomeAmount }) => {
+const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, transactions, allTransactions, savingsGoals, budgets, onSetBillPaid, onSetIncomeReceived, onAddTransaction, categories, sources, viewingDate, onMonthChange, onUpdateMonthlyBillAmount, onUpdateMonthlyIncomeAmount }) => {
     const [showManualForm, setShowManualForm] = useState(false);
     const [editingBill, setEditingBill] = useState<{id: string, amount: string} | null>(null);
     const [editingIncome, setEditingIncome] = useState<{id: string, amount: string} | null>(null);
 
     const { totalIncome, totalExpenses, balance } = useMemo(() => {
-        const income = transactions.filter(t => t.entryType === 'income').reduce((acc, t) => acc + t.amount, 0);
-        const expenses = transactions.filter(t => t.entryType === 'expense').reduce((acc, t) => acc + t.amount, 0);
+        // FIX: Ensure amounts are treated as numbers during reduction.
+        const income = transactions.filter(t => t.entryType === 'income').reduce((acc, t) => acc + Number(t.amount), 0);
+        const expenses = transactions.filter(t => t.entryType === 'expense' && t.category !== 'Poupança').reduce((acc, t) => acc + Number(t.amount), 0);
         return { totalIncome: income, totalExpenses: expenses, balance: income - expenses };
     }, [transactions]);
 
     const { paidAmount, pendingAmount } = useMemo(() => {
         return monthlyBills.reduce((acc, bill) => {
             if (bill.status === TransactionStatus.Paid) {
-                acc.paidAmount += bill.amount;
+                // FIX: Ensure bill amount is a number before addition.
+                acc.paidAmount += Number(bill.amount);
             } else {
-                acc.pendingAmount += bill.amount;
+                // FIX: Ensure bill amount is a number before addition.
+                acc.pendingAmount += Number(bill.amount);
             }
             return acc;
         }, { paidAmount: 0, pendingAmount: 0 });
@@ -102,21 +105,65 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
     const { receivedAmount, pendingIncomeAmount } = useMemo(() => {
         return monthlyIncomes.reduce((acc, income) => {
             if (income.status === IncomeStatus.Received) {
-                acc.receivedAmount += income.amount;
+                // FIX: Ensure income amount is a number before addition.
+                acc.receivedAmount += Number(income.amount);
             } else {
-                acc.pendingIncomeAmount += income.amount;
+                // FIX: Ensure income amount is a number before addition.
+                acc.pendingIncomeAmount += Number(income.amount);
             }
             return acc;
         }, { receivedAmount: 0, pendingIncomeAmount: 0 });
     }, [monthlyIncomes]);
     
-    const spendingByCategory = useMemo(() => {
-        const categoryMap: { [key: string]: number } = {};
-        transactions.filter(t => t.entryType === 'expense').forEach(t => {
-            categoryMap[t.category] = (categoryMap[t.category] || 0) + t.amount;
+    const spendingWithBudgets = useMemo(() => {
+        const categoryMap: { [key: string]: { spent: number; budget?: number } } = {};
+
+        budgets.forEach(b => {
+            if (b.category !== 'Renda') {
+                // FIX: Ensure budget amount is a number.
+                categoryMap[b.category] = { spent: 0, budget: Number(b.amount) };
+            }
         });
-        return Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
-    }, [transactions]);
+
+        transactions.filter(t => t.entryType === 'expense').forEach(t => {
+            if (categoryMap[t.category]) {
+                // FIX: Ensure transaction amount is a number before addition.
+                categoryMap[t.category].spent += Number(t.amount);
+            } else if (t.category !== 'Renda' && t.category !== 'Dívidas' && t.category !== 'Poupança') {
+                 // FIX: Ensure transaction amount is a number.
+                 categoryMap[t.category] = { spent: Number(t.amount), budget: undefined };
+            }
+        });
+        
+        return Object.entries(categoryMap)
+            .map(([name, data]) => ({ name, ...data }))
+            .filter(item => item.spent > 0 || item.budget !== undefined)
+            .sort((a, b) => (b.budget ?? 0) - (a.budget ?? 0));
+    }, [transactions, budgets]);
+
+    const expenseToIncomeRatio = useMemo(() => totalIncome > 0 ? (totalExpenses / totalIncome) * 100 : 0, [totalIncome, totalExpenses]);
+
+    const incomeAnalysisCategories = useMemo(() => {
+        if (totalIncome === 0) return [];
+    
+        const categorySpending = transactions
+            .filter(t => t.entryType === 'expense' && t.category !== 'Poupança' && t.category !== 'Dívidas')
+            .reduce((acc, t) => {
+                // FIX: Ensure transaction amount is a number before addition.
+// FIX: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+                acc[t.category] = (acc[t.category] || 0) + Number(t.amount);
+                return acc;
+            }, {} as Record<string, number>);
+    
+        return Object.entries(categorySpending)
+            .map(([name, spent]) => ({
+                name,
+                spent,
+                percentage: (spent / totalIncome) * 100,
+            }))
+            .sort((a, b) => b.spent - a.spent)
+            .slice(0, 5); // Show top 5 categories
+    }, [transactions, totalIncome]);
     
     const handleAmountEdit = (bill: MonthlyBill) => {
         setEditingBill({id: bill.id, amount: String(bill.amount)});
@@ -285,23 +332,109 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                         </div>
                     </Card>
                 </div>
-                <Card title="Spending by Category" className="lg:col-span-2">
-                    {spendingByCategory.length > 0 ? (
-                        <ResponsiveContainer width="100%" height={300}>
-                            <PieChart>
-                                <Pie data={spendingByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} fill="#8884d8" labelLine={false}>
-                                    {spendingByCategory.map((entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip formatter={(value: number) => formatCurrency(value)} contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} />
-                                <Legend formatter={(value) => <span className="text-slate-300">{value}</span>}/>
-                            </PieChart>
-                        </ResponsiveContainer>
-                    ) : (
-                         <div className="flex items-center justify-center h-full text-slate-400">No expenses this month.</div>
-                    )}
-                </Card>
+                <div className="lg:col-span-2 flex flex-col gap-6">
+                    <Card title="Spending by Category">
+                        {spendingWithBudgets.length > 0 ? (
+                        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
+                            {spendingWithBudgets.map(item => {
+                                const percentage = item.budget ? Math.min((item.spent / item.budget) * 100, 100) : 0;
+                                const barColor = percentage >= 95 ? 'bg-danger' : percentage >= 75 ? 'bg-warning' : 'bg-success';
+                                return (
+                                    <div key={item.name}>
+                                        <div className="flex justify-between items-baseline mb-1">
+                                            <span className="font-semibold text-slate-200">{item.name}</span>
+                                            <span className="text-sm text-slate-400">
+                                                {formatCurrency(item.spent)}
+                                                {item.budget && ` / ${formatCurrency(item.budget)}`}
+                                            </span>
+                                        </div>
+                                        {item.budget && (
+                                            <div className="w-full bg-neutral rounded-full h-2.5">
+                                                <div className={`${barColor} h-2.5 rounded-full transition-all duration-500`} style={{ width: `${percentage}%` }}></div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-slate-400">No expenses to display.</div>
+                        )}
+                    </Card>
+                    <Card title="Análise de Renda">
+                        <div className="space-y-4">
+                            <div>
+                                <div className="flex justify-between items-baseline mb-1">
+                                    <span className="font-semibold text-slate-200">Comprometimento da Renda</span>
+                                    <span className="font-bold text-lg text-white">
+                                        {expenseToIncomeRatio.toFixed(1)}%
+                                    </span>
+                                </div>
+                                <div className="w-full bg-neutral rounded-full h-3.5">
+                                    <div 
+                                        className="bg-primary h-3.5 rounded-full transition-all duration-500" 
+                                        style={{ width: `${Math.min(expenseToIncomeRatio, 100)}%` }}>
+                                    </div>
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1">Total de despesas representa {expenseToIncomeRatio.toFixed(1)}% da sua renda total.</p>
+                            </div>
+                            
+                            <hr className="border-neutral/50" />
+
+                            <div>
+                                <h4 className="font-semibold text-slate-300 mb-2">Principais Despesas (% da Renda)</h4>
+                                <div className="space-y-3">
+                                    {incomeAnalysisCategories.length > 0 ? incomeAnalysisCategories.map(item => (
+                                        <div key={item.name}>
+                                            <div className="flex justify-between text-sm">
+                                                <span className="text-slate-300">{item.name}</span>
+                                                <span className="font-semibold text-slate-200">{item.percentage.toFixed(1)}%</span>
+                                            </div>
+                                            <div className="w-full bg-neutral rounded-full h-2 mt-1">
+                                                <div 
+                                                    className="bg-secondary h-2 rounded-full" 
+                                                    style={{ width: `${Math.min(item.percentage, 100)}%` }}>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <p className="text-sm text-slate-400 text-center py-2">Sem despesas para analisar.</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                     <Card title="Savings Goals">
+                        {savingsGoals.length > 0 ? (
+                            <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                                {savingsGoals.map(goal => {
+                                    const currentAmount = allTransactions
+                                        .filter(t => t.goalId === goal.id)
+                                        // FIX: Ensure transaction amount is a number before reduction.
+                                        .reduce((sum, t) => sum + Number(t.amount), 0);
+                                    const percentage = Math.min((currentAmount / goal.targetAmount) * 100, 100);
+                                    return (
+                                        <div key={goal.id}>
+                                            <div className="flex justify-between items-baseline mb-1">
+                                                <span className="font-semibold text-slate-200">{goal.name}</span>
+                                                <span className="text-sm text-slate-400">
+                                                    {formatCurrency(currentAmount)} / {formatCurrency(goal.targetAmount)}
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-neutral rounded-full h-2.5">
+                                                <div className="bg-primary h-2.5 rounded-full transition-all duration-500" style={{ width: `${percentage}%` }}></div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-slate-400">
+                                <p>No savings goals yet. Add one in the Savings page!</p>
+                            </div>
+                        )}
+                    </Card>
+                </div>
             </div>
             
             <Card title="Recent Variable Transactions">

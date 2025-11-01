@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, FixedBill, MonthlyBill, Transaction, TransactionStatus, TransactionType, UncategorizedTransaction, SpendingPattern, ParsedTransaction, RecurringIncome, MonthlyIncome, IncomeStatus } from './types';
-import { DashboardIcon, HistoryIcon, ImportIcon, SettingsIcon } from './components/icons';
+import { View, FixedBill, MonthlyBill, Transaction, TransactionStatus, TransactionType, UncategorizedTransaction, SpendingPattern, ParsedTransaction, RecurringIncome, MonthlyIncome, IncomeStatus, RecurringTransaction, Budget, SavingsGoal } from './types';
+import { DashboardIcon, HistoryIcon, ImportIcon, SettingsIcon, SavingsIcon } from './components/icons';
 import Dashboard from './components/Dashboard';
 import HistoryPage from './components/HistoryPage';
 import ImportPage from './components/ImportPage';
 import SettingsPage from './components/SettingsPage';
+import SavingsGoalsPage from './components/SavingsGoalsPage';
 import { analyzeSpendingPatterns, suggestCategoriesForTransactions } from './services/geminiService';
 
 const initialFixedBills: FixedBill[] = [
@@ -23,8 +24,14 @@ const initialRecurringIncomes: RecurringIncome[] = [
     { id: 'ri1', name: 'Salário', defaultValue: 5000.00, incomeDay: 5 },
 ];
 
-const initialCategories: string[] = ['Moradia', 'Transporte', 'Alimentação', 'Lazer', 'Dívidas', 'Saúde', 'Educação', 'PJ', 'Renda', 'Outros'];
+const initialCategories: string[] = ['Moradia', 'Transporte', 'Alimentação', 'Lazer', 'Dívidas', 'Saúde', 'Educação', 'PJ', 'Renda', 'Outros', 'Poupança'];
 const initialSources: string[] = ['Cartão Nubank', 'Conta Corrente BB', 'Dinheiro', 'Conta PJ'];
+const initialBudgets: Budget[] = [
+    { category: 'Alimentação', amount: 1200 },
+    { category: 'Transporte', amount: 400 },
+    { category: 'Lazer', amount: 600 },
+    { category: 'Moradia', amount: 200 },
+];
 
 const App: React.FC = () => {
     const [view, setView] = useState<View>('dashboard');
@@ -34,8 +41,11 @@ const App: React.FC = () => {
     const [recurringIncomes, setRecurringIncomes] = useState<RecurringIncome[]>(initialRecurringIncomes);
     const [monthlyIncomes, setMonthlyIncomes] = useState<MonthlyIncome[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
     const [categories, setCategories] = useState<string[]>(initialCategories);
     const [sources, setSources] = useState<string[]>(initialSources);
+    const [budgets, setBudgets] = useState<Budget[]>(initialBudgets);
+    const [savingsGoals, setSavingsGoals] = useState<SavingsGoal[]>([]);
     const [uncategorized, setUncategorized] = useState<UncategorizedTransaction[]>([]);
     const [categoryPatterns, setCategoryPatterns] = useState<Record<string, string>>({});
     const [spendingPatterns, setSpendingPatterns] = useState<SpendingPattern[] | null>(null);
@@ -96,12 +106,43 @@ const App: React.FC = () => {
       });
       setMonthlyIncomes(prev => [...prev.filter(i => !(i.year === year && i.month === month)), ...newIncomes]);
     }, [recurringIncomes, monthlyIncomes, generateId]);
+
+    const generateRecurringTransactions = useCallback((date: Date) => {
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+
+        recurringTransactions.forEach(rt => {
+            const transactionExists = transactions.some(t => 
+                t.recurringTransactionId === rt.id &&
+                new Date(t.date).getFullYear() === year &&
+                new Date(t.date).getMonth() + 1 === month
+            );
+
+            if (!transactionExists) {
+                const day = String(rt.day).padStart(2, '0');
+                const monthStr = String(month).padStart(2, '0');
+                const newTransaction: Transaction = {
+                    id: generateId(),
+                    recurringTransactionId: rt.id,
+                    description: rt.description,
+                    amount: rt.amount,
+                    date: `${year}-${monthStr}-${day}`,
+                    category: rt.category,
+                    source: rt.source,
+                    type: TransactionType.Variable, 
+                    entryType: rt.entryType,
+                };
+                setTransactions(prevTransactions => [...prevTransactions, newTransaction]);
+            }
+        });
+    }, [recurringTransactions, transactions, generateId]);
   
     useEffect(() => {
         generateMonthlyBills(viewingDate);
         generateMonthlyIncomes(viewingDate);
+        generateRecurringTransactions(viewingDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fixedBills, recurringIncomes, viewingDate]); 
+    }, [fixedBills, recurringIncomes, recurringTransactions, viewingDate]); 
 
     const handleUpdateMonthlyBillAmount = (billId: string, newAmount: number) => {
       setMonthlyBills(prevBills => prevBills.map(b => b.id === billId ? { ...b, amount: newAmount } : b));
@@ -348,6 +389,7 @@ const App: React.FC = () => {
         newDate.setMonth(newMonth);
         generateMonthlyBills(newDate);
         generateMonthlyIncomes(newDate);
+        generateRecurringTransactions(newDate);
         return newDate;
       })
     }
@@ -358,7 +400,10 @@ const App: React.FC = () => {
                 return <Dashboard 
                     monthlyBills={viewingMonthBills} 
                     monthlyIncomes={viewingMonthIncomes}
-                    transactions={viewingMonthTransactions} 
+                    transactions={viewingMonthTransactions}
+                    allTransactions={transactions}
+                    savingsGoals={savingsGoals}
+                    budgets={budgets}
                     onSetBillPaid={handleSetBillPaid} 
                     onSetIncomeReceived={handleSetIncomeReceived}
                     onAddTransaction={addTransaction}
@@ -394,6 +439,10 @@ const App: React.FC = () => {
                     setFixedBills={setFixedBills}
                     recurringIncomes={recurringIncomes}
                     setRecurringIncomes={setRecurringIncomes}
+                    recurringTransactions={recurringTransactions}
+                    setRecurringTransactions={setRecurringTransactions}
+                    budgets={budgets}
+                    setBudgets={setBudgets}
                     categories={categories}
                     onAddCategory={handleAddCategory}
                     onUpdateCategory={handleUpdateCategory}
@@ -404,11 +453,22 @@ const App: React.FC = () => {
                     onDeleteSource={handleDeleteSource}
                     allTransactions={transactions}
                 />;
+            case 'savings':
+                return <SavingsGoalsPage 
+                    savingsGoals={savingsGoals}
+                    setSavingsGoals={setSavingsGoals}
+                    allTransactions={transactions}
+                    onAddTransaction={addTransaction}
+                    sources={sources}
+                />;
             default:
                 return <Dashboard 
                     monthlyBills={viewingMonthBills} 
                     monthlyIncomes={viewingMonthIncomes}
-                    transactions={viewingMonthTransactions} 
+                    transactions={viewingMonthTransactions}
+                    allTransactions={transactions}
+                    savingsGoals={savingsGoals}
+                    budgets={budgets}
                     onSetBillPaid={handleSetBillPaid} 
                     onSetIncomeReceived={handleSetIncomeReceived}
                     onAddTransaction={addTransaction}
@@ -438,6 +498,7 @@ const App: React.FC = () => {
                 <div className="flex sm:flex-col justify-around sm:justify-start sm:space-y-2">
                     <NavItem targetView="dashboard" icon={<DashboardIcon />} label="Dashboard" />
                     <NavItem targetView="history" icon={<HistoryIcon />} label="History & Reports" />
+                    <NavItem targetView="savings" icon={<SavingsIcon />} label="Savings" />
                     <NavItem targetView="import" icon={<ImportIcon />} label="Import" />
                     <NavItem targetView="settings" icon={<SettingsIcon />} label="Settings" />
                 </div>
