@@ -112,21 +112,13 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, 
             </Card>
 
             <Card title="Spending Pattern Analysis (AI)">
-                 {isLoadingPatterns ? (
+                {isLoadingPatterns ? (
                     <div className="flex justify-center items-center p-10">
                         <div className="loader"></div>
+                        <p className="ml-4 text-slate-400">Analyzing patterns...</p>
                     </div>
-                 ) : (
-                    <div className="flex flex-col items-center text-center p-4">
-                        <p className="mb-4 text-slate-400">Discover hidden subscriptions and spending habits in your variable expenses using AI.</p>
-                        <Button onClick={onAnalyzePatterns} disabled={isLoadingPatterns}>
-                            Analyze Spending Patterns
-                        </Button>
-                    </div>
-                 )}
-
-                {spendingPatterns && !isLoadingPatterns && (
-                    <div className="mt-4 space-y-4">
+                ) : spendingPatterns && spendingPatterns.length > 0 ? (
+                    <div className="space-y-4">
                         {spendingPatterns.map((pattern, index) => (
                             <div key={index} className="p-4 bg-neutral/30 rounded-lg border border-neutral">
                                 <h4 className="font-bold text-lg text-primary">{pattern.merchant}</h4>
@@ -137,6 +129,16 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, 
                                 </div>
                             </div>
                         ))}
+                         <div className="text-center pt-4">
+                            <Button onClick={onAnalyzePatterns} variant="secondary">Analyze Again</Button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col items-center text-center p-4">
+                        <p className="mb-4 text-slate-400">Discover hidden subscriptions and spending habits in your variable expenses using AI.</p>
+                        <Button onClick={onAnalyzePatterns} disabled={isLoadingPatterns}>
+                            Analyze Spending Patterns
+                        </Button>
                     </div>
                 )}
             </Card>

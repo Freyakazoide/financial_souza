@@ -1,20 +1,25 @@
+
 import React, { useState, useEffect } from 'react';
-import { FixedBill } from '../types';
+import { FixedBill, RecurringIncome } from '../types';
 import { Card, Button, Input } from './common';
 import { PlusIcon, TrashIcon, EditIcon } from './icons';
 
 interface SettingsPageProps {
   fixedBills: FixedBill[];
   setFixedBills: React.Dispatch<React.SetStateAction<FixedBill[]>>;
+  recurringIncomes: RecurringIncome[];
+  setRecurringIncomes: React.Dispatch<React.SetStateAction<RecurringIncome[]>>;
   categories: string[];
   setCategories: React.Dispatch<React.SetStateAction<string[]>>;
   sources: string[];
   setSources: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, categories, setCategories, sources, setSources }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, recurringIncomes, setRecurringIncomes, categories, setCategories, sources, setSources }) => {
     const [newBill, setNewBill] = useState({ name: '', defaultValue: '', dueDay: '' });
     const [editingBill, setEditingBill] = useState<FixedBill | null>(null);
+    const [newIncome, setNewIncome] = useState({ name: '', defaultValue: '', incomeDay: '' });
+    const [editingIncome, setEditingIncome] = useState<RecurringIncome | null>(null);
     const [newCategory, setNewCategory] = useState('');
     const [newSource, setNewSource] = useState('');
 
@@ -30,13 +35,24 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, 
         }
     }, [editingBill]);
 
+    useEffect(() => {
+        if (editingIncome) {
+            setNewIncome({
+                name: editingIncome.name,
+                defaultValue: String(editingIncome.defaultValue),
+                incomeDay: String(editingIncome.incomeDay),
+            });
+        } else {
+            setNewIncome({ name: '', defaultValue: '', incomeDay: '' });
+        }
+    }, [editingIncome]);
+
     const generateId = () => Math.random().toString(36).substring(2, 9);
     
     const handleBillSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (newBill.name && newBill.defaultValue && newBill.dueDay) {
             if (editingBill) {
-                // Update existing bill
                 setFixedBills(fixedBills.map(b => b.id === editingBill.id ? {
                     ...b,
                     name: newBill.name,
@@ -45,7 +61,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, 
                 } : b));
                 setEditingBill(null);
             } else {
-                // Add new bill
                 setFixedBills([...fixedBills, {
                     id: generateId(),
                     name: newBill.name,
@@ -57,6 +72,29 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, 
         }
     };
     
+    const handleIncomeSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newIncome.name && newIncome.defaultValue && newIncome.incomeDay) {
+            if (editingIncome) {
+                setRecurringIncomes(recurringIncomes.map(i => i.id === editingIncome.id ? {
+                    ...i,
+                    name: newIncome.name,
+                    defaultValue: parseFloat(newIncome.defaultValue),
+                    incomeDay: parseInt(newIncome.incomeDay, 10),
+                } : i));
+                setEditingIncome(null);
+            } else {
+                setRecurringIncomes([...recurringIncomes, {
+                    id: generateId(),
+                    name: newIncome.name,
+                    defaultValue: parseFloat(newIncome.defaultValue),
+                    incomeDay: parseInt(newIncome.incomeDay, 10),
+                }]);
+            }
+            setNewIncome({ name: '', defaultValue: '', incomeDay: '' });
+        }
+    };
+
     const handleRemoveBill = (id: string) => {
         setFixedBills(fixedBills.filter(b => b.id !== id));
         if (editingBill && editingBill.id === id) {
@@ -64,13 +102,19 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, 
         }
     };
 
-    const handleEditBill = (bill: FixedBill) => {
-        setEditingBill(bill);
-    }
+    const handleRemoveIncome = (id: string) => {
+        setRecurringIncomes(recurringIncomes.filter(i => i.id !== id));
+        if (editingIncome && editingIncome.id === id) {
+            setEditingIncome(null);
+        }
+    };
 
-    const cancelEdit = () => {
-        setEditingBill(null);
-    }
+    const handleEditBill = (bill: FixedBill) => setEditingBill(bill);
+    const cancelEditBill = () => setEditingBill(null);
+
+    const handleEditIncome = (income: RecurringIncome) => setEditingIncome(income);
+    const cancelEditIncome = () => setEditingIncome(null);
+
 
     const handleAddCategory = (e: React.FormEvent) => {
         e.preventDefault();
@@ -109,7 +153,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, 
                         <Button type="submit" className="h-10 flex-1 flex items-center justify-center">
                            {editingBill ? 'Update' : <><PlusIcon className="h-5 w-5 mr-2" /> Add</>}
                         </Button>
-                        {editingBill && <Button type="button" variant="secondary" onClick={cancelEdit} className="h-10">Cancel</Button>}
+                        {editingBill && <Button type="button" variant="secondary" onClick={cancelEditBill} className="h-10">Cancel</Button>}
                     </div>
                 </form>
                 <div className="space-y-2">
@@ -119,6 +163,31 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, 
                             <div className="flex gap-2">
                                <Button variant="ghost" className="p-2 h-auto" onClick={() => handleEditBill(bill)}><EditIcon /></Button>
                                <Button variant="danger" className="p-2 h-auto" onClick={() => handleRemoveBill(bill.id)}><TrashIcon /></Button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </Card>
+
+            <Card title={editingIncome ? `Editing: ${editingIncome.name}` : "Manage Recurring Income"}>
+                <form onSubmit={handleIncomeSubmit} className="grid grid-cols-1 sm:grid-cols-4 gap-4 items-end mb-4 p-4 border border-neutral rounded-lg">
+                    <Input label="Name" type="text" placeholder="e.g., Salary" value={newIncome.name} onChange={e => setNewIncome({...newIncome, name: e.target.value})} required />
+                    <Input label="Default Value" type="number" step="0.01" placeholder="5000.00" value={newIncome.defaultValue} onChange={e => setNewIncome({...newIncome, defaultValue: e.target.value})} required />
+                    <Input label="Income Day" type="number" placeholder="5" min="1" max="31" value={newIncome.incomeDay} onChange={e => setNewIncome({...newIncome, incomeDay: e.target.value})} required />
+                    <div className="flex gap-2">
+                        <Button type="submit" className="h-10 flex-1 flex items-center justify-center">
+                           {editingIncome ? 'Update' : <><PlusIcon className="h-5 w-5 mr-2" /> Add</>}
+                        </Button>
+                        {editingIncome && <Button type="button" variant="secondary" onClick={cancelEditIncome} className="h-10">Cancel</Button>}
+                    </div>
+                </form>
+                <div className="space-y-2">
+                    {recurringIncomes.map(income => (
+                        <div key={income.id} className="flex justify-between items-center p-3 bg-neutral/50 rounded-lg">
+                            <span className="text-slate-200">{income.name} - {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(income.defaultValue)} (Day {income.incomeDay})</span>
+                            <div className="flex gap-2">
+                               <Button variant="ghost" className="p-2 h-auto" onClick={() => handleEditIncome(income)}><EditIcon /></Button>
+                               <Button variant="danger" className="p-2 h-auto" onClick={() => handleRemoveIncome(income.id)}><TrashIcon /></Button>
                             </div>
                         </div>
                     ))}

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { UncategorizedTransaction, Transaction, TransactionType, ParsedTransaction } from '../types';
 import { Card, Button, Select } from './common';
@@ -9,6 +10,7 @@ interface ImportPageProps {
   onConfirm: (transactions: Omit<Transaction, 'id'|'type'>[]) => void;
   categories: string[];
   sources: string[];
+  isCategorizing?: boolean;
 }
 
 const parsePastedText = (content: string): ParsedTransaction[] => {
@@ -47,7 +49,7 @@ const parsePastedText = (content: string): ParsedTransaction[] => {
 };
 
 
-const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransactions, onConfirm, categories, sources }) => {
+const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransactions, onConfirm, categories, sources, isCategorizing }) => {
     const [pastedContent, setPastedContent] = useState('');
     const [categorized, setCategorized] = useState<Record<string, Partial<{ category: string; source: string; ignored: boolean; description: string }>>>({});
 
@@ -65,12 +67,12 @@ const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransact
 
     const handleConfirm = () => {
         const newTransactions: Omit<Transaction, 'id' | 'type'>[] = uncategorizedTransactions
-            .filter(t => !categorized[t.id]?.ignored && categorized[t.id]?.category)
+            .filter(t => !categorized[t.id]?.ignored && (categorized[t.id]?.category || t.suggestedCategory))
             .map(t => ({
                 description: categorized[t.id]?.description ?? t.description,
                 amount: t.amount,
                 date: t.date,
-                category: categorized[t.id]?.category as string,
+                category: categorized[t.id]?.category || t.suggestedCategory as string,
                 source: categorized[t.id]?.source || sources[0],
                 entryType: 'expense', // Assuming all reconciled are expenses
                 importId: t.importId,
@@ -80,7 +82,8 @@ const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransact
         setPastedContent('');
     };
 
-    const allCategorized = uncategorizedTransactions.length > 0 && uncategorizedTransactions.every(t => categorized[t.id] && (categorized[t.id].category || categorized[t.id].ignored));
+    const allCategorized = uncategorizedTransactions.length > 0 && uncategorizedTransactions.every(t => categorized[t.id] ? (categorized[t.id].category || categorized[t.id].ignored) : (t.suggestedCategory));
+
 
     return (
         <div className="space-y-6">
@@ -103,9 +106,16 @@ const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransact
                 </div>
             </Card>
 
-            {uncategorizedTransactions.length > 0 && (
+            {isCategorizing ? (
+                 <Card title="Reconciliation">
+                    <div className="flex flex-col items-center justify-center p-10">
+                        <div className="loader"></div>
+                        <p className="mt-4 text-slate-400">AI is suggesting categories...</p>
+                    </div>
+                </Card>
+            ) : uncategorizedTransactions.length > 0 && (
                 <Card title="Reconciliation">
-                    <p className="text-sm text-slate-400 mb-4">The system has automatically handled fixed bills and internal transfers. Please categorize the remaining transactions.</p>
+                    <p className="text-sm text-slate-400 mb-4">The system has automatically handled fixed bills and internal transfers. Please categorize the remaining transactions. AI suggestions have been pre-filled.</p>
                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                         {uncategorizedTransactions.map(t => {
                             const state = categorized[t.id] || {};

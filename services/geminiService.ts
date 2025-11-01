@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from '@google/genai';
-import { Transaction, SpendingPattern } from '../types';
+import { Transaction, SpendingPattern, UncategorizedTransaction } from '../types';
 
 export const analyzeSpendingPatterns = async (transactions: Transaction[]): Promise<SpendingPattern[]> => {
   if (!process.env.API_KEY) {
@@ -66,5 +66,63 @@ export const analyzeSpendingPatterns = async (transactions: Transaction[]): Prom
       totalSpent: 0,
       insight: "Could not analyze spending patterns. Please check the API key and try again."
     }];
+  }
+};
+
+
+export const suggestCategoriesForTransactions = async (
+  transactions: Pick<UncategorizedTransaction, 'id' | 'description' | 'amount'>[],
+  categories: string[]
+): Promise<Record<string, string>> => {
+  if (!process.env.API_KEY) {
+    throw new Error("API_KEY environment variable not set");
+  }
+  if (transactions.length === 0) {
+    return {};
+  }
+
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+  const prompt = `Based on the following list of financial transaction descriptions and a list of available categories, suggest the most appropriate category for each transaction.
+  
+  Available Categories: ${JSON.stringify(categories.filter(c => c !== 'Renda'))}
+  
+  Transactions to categorize: ${JSON.stringify(transactions)}
+  
+  Provide the output as a JSON array, where each object contains the transaction 'id' and the 'suggestedCategory'. Do not suggest the 'Renda' category for expenses.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              id: { type: Type.STRING },
+              suggestedCategory: { type: Type.STRING },
+            },
+            required: ["id", "suggestedCategory"],
+          },
+        },
+      },
+    });
+
+    const jsonString = response.text.trim();
+    const suggestions: { id: string; suggestedCategory: string }[] = JSON.parse(jsonString);
+    
+    const suggestionMap: Record<string, string> = {};
+    suggestions.forEach(s => {
+      if (categories.includes(s.suggestedCategory)) {
+        suggestionMap[s.id] = s.suggestedCategory;
+      }
+    });
+    return suggestionMap;
+  } catch (error) {
+    console.error("Error suggesting categories with Gemini:", error);
+    return {}; 
   }
 };

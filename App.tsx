@@ -1,11 +1,12 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, FixedBill, MonthlyBill, Transaction, TransactionStatus, TransactionType, UncategorizedTransaction, SpendingPattern, ParsedTransaction } from './types';
+import { View, FixedBill, MonthlyBill, Transaction, TransactionStatus, TransactionType, UncategorizedTransaction, SpendingPattern, ParsedTransaction, RecurringIncome, MonthlyIncome, IncomeStatus } from './types';
 import { DashboardIcon, HistoryIcon, ImportIcon, SettingsIcon } from './components/icons';
 import Dashboard from './components/Dashboard';
 import HistoryPage from './components/HistoryPage';
 import ImportPage from './components/ImportPage';
 import SettingsPage from './components/SettingsPage';
-import { analyzeSpendingPatterns } from './services/geminiService';
+import { analyzeSpendingPatterns, suggestCategoriesForTransactions } from './services/geminiService';
 
 const initialFixedBills: FixedBill[] = [
     { id: 'fb1', name: 'Telefone [TIM] [DANI]', defaultValue: 74.00, dueDay: 10 },
@@ -18,6 +19,10 @@ const initialFixedBills: FixedBill[] = [
     { id: 'fb8', name: 'DAS - PJ', defaultValue: 80.90, dueDay: 20 },
 ];
 
+const initialRecurringIncomes: RecurringIncome[] = [
+    { id: 'ri1', name: 'Salário', defaultValue: 5000.00, incomeDay: 5 },
+];
+
 const initialCategories: string[] = ['Moradia', 'Transporte', 'Alimentação', 'Lazer', 'Dívidas', 'Saúde', 'Educação', 'PJ', 'Renda', 'Outros'];
 const initialSources: string[] = ['Cartão Nubank', 'Conta Corrente BB', 'Dinheiro', 'Conta PJ'];
 
@@ -26,6 +31,8 @@ const App: React.FC = () => {
     const [viewingDate, setViewingDate] = useState(new Date());
     const [fixedBills, setFixedBills] = useState<FixedBill[]>(initialFixedBills);
     const [monthlyBills, setMonthlyBills] = useState<MonthlyBill[]>([]);
+    const [recurringIncomes, setRecurringIncomes] = useState<RecurringIncome[]>(initialRecurringIncomes);
+    const [monthlyIncomes, setMonthlyIncomes] = useState<MonthlyIncome[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [categories, setCategories] = useState<string[]>(initialCategories);
     const [sources, setSources] = useState<string[]>(initialSources);
@@ -33,6 +40,7 @@ const App: React.FC = () => {
     const [categoryPatterns, setCategoryPatterns] = useState<Record<string, string>>({});
     const [spendingPatterns, setSpendingPatterns] = useState<SpendingPattern[] | null>(null);
     const [isLoadingPatterns, setIsLoadingPatterns] = useState(false);
+    const [isCategorizing, setIsCategorizing] = useState(false);
 
     const generateId = useCallback(() => Math.random().toString(36).substring(2, 9), []);
 
@@ -65,14 +73,42 @@ const App: React.FC = () => {
       });
       setMonthlyBills(prev => [...prev.filter(b => !(b.year === year && b.month === month)), ...newBills]);
     }, [fixedBills, monthlyBills, generateId]);
+
+    const generateMonthlyIncomes = useCallback((date: Date) => {
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+  
+      const existingIncomesForMonth = monthlyIncomes.some(i => i.year === year && i.month === month);
+      if (existingIncomesForMonth) return;
+  
+      const newIncomes = recurringIncomes.map(ri => {
+          return {
+              id: generateId(),
+              recurringIncomeId: ri.id,
+              name: ri.name,
+              month,
+              year,
+              status: IncomeStatus.Pending,
+              amount: ri.defaultValue,
+              receivedDate: undefined,
+              incomeDay: ri.incomeDay,
+          };
+      });
+      setMonthlyIncomes(prev => [...prev.filter(i => !(i.year === year && i.month === month)), ...newIncomes]);
+    }, [recurringIncomes, monthlyIncomes, generateId]);
   
     useEffect(() => {
         generateMonthlyBills(viewingDate);
+        generateMonthlyIncomes(viewingDate);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fixedBills, viewingDate]); 
+    }, [fixedBills, recurringIncomes, viewingDate]); 
 
     const handleUpdateMonthlyBillAmount = (billId: string, newAmount: number) => {
       setMonthlyBills(prevBills => prevBills.map(b => b.id === billId ? { ...b, amount: newAmount } : b));
+    };
+
+    const handleUpdateMonthlyIncomeAmount = (incomeId: string, newAmount: number) => {
+      setMonthlyIncomes(prevIncomes => prevIncomes.map(i => i.id === incomeId ? { ...i, amount: newAmount } : i));
     };
 
     const handleSetBillPaid = (billId: string, paidDate: string, amount?: number, importId?: string) => {    
@@ -104,12 +140,43 @@ const App: React.FC = () => {
         })
       );
     };
+    
+    const handleSetIncomeReceived = (incomeId: string, receivedDate: string, amount?: number) => {    
+      setMonthlyIncomes(prevIncomes => 
+        prevIncomes.map(i => {
+          if (i.id === incomeId) {
+            const finalAmount = amount ?? i.amount;
+            const newIncome = { ...i, status: IncomeStatus.Received, receivedDate: receivedDate, amount: finalAmount };
+            
+            const transactionExists = transactions.some(t => t.description === newIncome.name && new Date(t.date).getMonth() + 1 === newIncome.month && new Date(t.date).getFullYear() === newIncome.year);
+            
+            if (!transactionExists) {
+              const newTransaction: Transaction = {
+                id: generateId(),
+                description: newIncome.name,
+                amount: finalAmount,
+                date: receivedDate,
+                category: 'Renda', // Default category for income
+                source: 'Conta Corrente BB', // Default source
+                type: TransactionType.Fixed,
+                entryType: 'income',
+                importId: undefined,
+              };
+              setTransactions(prevTransactions => [...prevTransactions, newTransaction]);
+            }
+            return newIncome;
+          }
+          return i;
+        })
+      );
+    };
 
     const addTransaction = (transaction: Omit<Transaction, 'id' | 'type'>) => {
         setTransactions(prev => [...prev, { ...transaction, id: generateId(), type: TransactionType.Variable }]);
     };
 
-    const processImportedTransactions = (parsed: ParsedTransaction[]) => {
+    const processImportedTransactions = async (parsed: ParsedTransaction[]) => {
+      setUncategorized([]);
       const trulyUncategorized: UncategorizedTransaction[] = [];
       const allImportIds = new Set(transactions.map(t => t.importId));
       
@@ -117,17 +184,15 @@ const App: React.FC = () => {
           return name.toUpperCase().split(/[\s-\[\]]+/).filter(w => w.length > 2 && !['DE', 'A', 'O', 'PARA'].includes(w));
       }
       
-      // FIX: Explicitly type fixedBillKeywords to resolve a type inference issue causing `keywords` to be `unknown`.
       const fixedBillKeywords: Map<string, string[]> = new Map(fixedBills.map(fb => [fb.id, getKeywords(fb.name)]));
 
-      // Hardcoded mapping for complex cases
       const customMappings: Record<string, string> = {
-        'BANCO VOTORANTIM': 'fb7' // Maps "BANCO VOTORANTIM" to "Parcela Ford KA"
+        'BANCO VOTORANTIM': 'fb7'
       };
 
       parsed.forEach(p => {
-          if (allImportIds.has(p.importId)) return; // Skip duplicates
-          if (p.description.toLowerCase().includes('pagamento de fatura')) return; // Skip internal transfers
+          if (allImportIds.has(p.importId)) return;
+          if (p.description.toLowerCase().includes('pagamento de fatura')) return;
 
           let matchedBill = false;
           if (p.entryType === 'expense') {
@@ -167,12 +232,30 @@ const App: React.FC = () => {
               });
           }
       });
+      
+      if (trulyUncategorized.length > 0) {
+        setIsCategorizing(true);
+        try {
+          const suggestions = await suggestCategoriesForTransactions(
+            trulyUncategorized.map(t => ({ id: t.id, description: t.description, amount: t.amount })),
+            categories
+          );
+          trulyUncategorized.forEach(t => {
+            if (suggestions[t.id]) {
+              t.suggestedCategory = suggestions[t.id];
+            }
+          });
+        } catch (error) {
+          console.error("Failed to get AI category suggestions:", error);
+        } finally {
+          setIsCategorizing(false);
+        }
+      }
 
       setUncategorized(trulyUncategorized);
-  };
+    };
 
     const confirmTransactions = (confirmed: Omit<Transaction, 'id' | 'type'>[]) => {
-        // FIX: Explicitly type newTransactions as Transaction[] to avoid potential type inference issues.
         const newTransactions: Transaction[] = confirmed.map(t => ({...t, id: generateId(), type: TransactionType.Variable}));
         setTransactions(prev => [...prev, ...newTransactions]);
         setUncategorized([]);
@@ -210,6 +293,7 @@ const App: React.FC = () => {
     const viewingMonth = viewingDate.getMonth() + 1;
     const viewingYear = viewingDate.getFullYear();
     const viewingMonthBills = useMemo(() => monthlyBills.filter(b => b.month === viewingMonth && b.year === viewingYear), [monthlyBills, viewingMonth, viewingYear]);
+    const viewingMonthIncomes = useMemo(() => monthlyIncomes.filter(i => i.month === viewingMonth && i.year === viewingYear), [monthlyIncomes, viewingMonth, viewingYear]);
     const viewingMonthTransactions = useMemo(() => transactions.filter(t => new Date(t.date).getMonth() + 1 === viewingMonth && new Date(t.date).getFullYear() === viewingYear), [transactions, viewingMonth, viewingYear]);
     
     const handleMonthChange = (direction: 'next' | 'prev') => {
@@ -218,6 +302,7 @@ const App: React.FC = () => {
         const newMonth = direction === 'next' ? newDate.getMonth() + 1 : newDate.getMonth() -1;
         newDate.setMonth(newMonth);
         generateMonthlyBills(newDate);
+        generateMonthlyIncomes(newDate);
         return newDate;
       })
     }
@@ -227,14 +312,17 @@ const App: React.FC = () => {
             case 'dashboard':
                 return <Dashboard 
                     monthlyBills={viewingMonthBills} 
+                    monthlyIncomes={viewingMonthIncomes}
                     transactions={viewingMonthTransactions} 
                     onSetBillPaid={handleSetBillPaid} 
+                    onSetIncomeReceived={handleSetIncomeReceived}
                     onAddTransaction={addTransaction}
                     categories={categories}
                     sources={sources}
                     viewingDate={viewingDate}
                     onMonthChange={handleMonthChange}
                     onUpdateMonthlyBillAmount={handleUpdateMonthlyBillAmount}
+                    onUpdateMonthlyIncomeAmount={handleUpdateMonthlyIncomeAmount}
                 />;
             case 'history':
                 return <HistoryPage 
@@ -253,11 +341,14 @@ const App: React.FC = () => {
                     onConfirm={confirmTransactions}
                     categories={categories}
                     sources={sources}
+                    isCategorizing={isCategorizing}
                 />;
             case 'settings':
                 return <SettingsPage 
                     fixedBills={fixedBills}
                     setFixedBills={setFixedBills}
+                    recurringIncomes={recurringIncomes}
+                    setRecurringIncomes={setRecurringIncomes}
                     categories={categories}
                     setCategories={setCategories}
                     sources={sources}
@@ -266,19 +357,21 @@ const App: React.FC = () => {
             default:
                 return <Dashboard 
                     monthlyBills={viewingMonthBills} 
+                    monthlyIncomes={viewingMonthIncomes}
                     transactions={viewingMonthTransactions} 
                     onSetBillPaid={handleSetBillPaid} 
+                    onSetIncomeReceived={handleSetIncomeReceived}
                     onAddTransaction={addTransaction}
                     categories={categories}
                     sources={sources}
                     viewingDate={viewingDate}
                     onMonthChange={handleMonthChange}
                     onUpdateMonthlyBillAmount={handleUpdateMonthlyBillAmount}
+                    onUpdateMonthlyIncomeAmount={handleUpdateMonthlyIncomeAmount}
                 />;
         }
     };
     
-    // FIX: Specify that the icon prop accepts a className to fix typing error with React.cloneElement.
     const NavItem = ({ targetView, icon, label }: { targetView: View; icon: React.ReactElement<{ className?: string }>; label: string; }) => (
         <button
             onClick={() => setView(targetView)}

@@ -5,9 +5,21 @@ export enum TransactionStatus {
   Paid = 'Paga',
 }
 
+export enum IncomeStatus {
+  Pending = 'Pendente',
+  Received = 'Recebido',
+}
+
 export enum TransactionType {
   Fixed = 'Fixo',
   Variable = 'Variável',
+}
+
+export interface RecurringIncome {
+  id: string;
+  name: string;
+  defaultValue: number;
+  incomeDay: number;
 }
 
 export interface FixedBill {
@@ -15,6 +27,18 @@ export interface FixedBill {
   name: string;
   defaultValue: number;
   dueDay: number;
+}
+
+export interface MonthlyIncome {
+  id: string;
+  recurringIncomeId: string;
+  name: string;
+  month: number;
+  year: number;
+  status: IncomeStatus;
+  receivedDate?: string;
+  amount: number;
+  incomeDay: number;
 }
 
 export interface MonthlyBill {
