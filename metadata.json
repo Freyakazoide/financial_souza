@@ -1,0 +1,5 @@
+{
+  "name": "Personal Finance Manager",
+  "description": "A web-based personal finance management system. It allows manual expense tracking, importing bank statements for analysis and categorization, and rigorous management of fixed monthly bills. The final result is a detailed history that allows for the generation of reports and analysis of spending patterns.",
+  "requestFramePermissions": []
+}
