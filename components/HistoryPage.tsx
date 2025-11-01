@@ -38,7 +38,9 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, 
         const lastYear = new Date();
         lastYear.setFullYear(lastYear.getFullYear() - 1);
 
-        allTransactions.forEach(t => {
+        allTransactions
+          .filter(t => t.entryType === 'expense')
+          .forEach(t => {
             const date = new Date(t.date);
             if (date >= lastYear) {
                 const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -85,7 +87,10 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, 
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{t.date}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-200">{t.description}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{t.category}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-danger">{formatCurrency(t.amount)}</td>
+                                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${t.entryType === 'income' ? 'text-success' : 'text-danger'}`}>
+                                      {t.entryType === 'income' ? '+' : '-'}
+                                      {formatCurrency(t.amount)}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>
@@ -107,14 +112,20 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, 
             </Card>
 
             <Card title="Spending Pattern Analysis (AI)">
-                <div className="flex flex-col items-center text-center p-4">
-                    <p className="mb-4 text-slate-400">Discover hidden subscriptions and spending habits in your variable expenses using AI.</p>
-                    <Button onClick={onAnalyzePatterns} disabled={isLoadingPatterns}>
-                        {isLoadingPatterns ? 'Analyzing...' : 'Analyze Spending Patterns'}
-                    </Button>
-                </div>
-                {isLoadingPatterns && <div className="text-center p-4">Loading analysis...</div>}
-                {spendingPatterns && (
+                 {isLoadingPatterns ? (
+                    <div className="flex justify-center items-center p-10">
+                        <div className="loader"></div>
+                    </div>
+                 ) : (
+                    <div className="flex flex-col items-center text-center p-4">
+                        <p className="mb-4 text-slate-400">Discover hidden subscriptions and spending habits in your variable expenses using AI.</p>
+                        <Button onClick={onAnalyzePatterns} disabled={isLoadingPatterns}>
+                            Analyze Spending Patterns
+                        </Button>
+                    </div>
+                 )}
+
+                {spendingPatterns && !isLoadingPatterns && (
                     <div className="mt-4 space-y-4">
                         {spendingPatterns.map((pattern, index) => (
                             <div key={index} className="p-4 bg-neutral/30 rounded-lg border border-neutral">

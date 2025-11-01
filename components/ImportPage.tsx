@@ -1,56 +1,62 @@
-
 import React, { useState, useCallback } from 'react';
-import { UncategorizedTransaction, Transaction, TransactionType } from '../types';
+import { UncategorizedTransaction, Transaction, TransactionType, ParsedTransaction } from '../types';
 import { Card, Button, Select } from './common';
 import { CheckCircleIcon, XCircleIcon } from './icons';
 
 interface ImportPageProps {
-  onImport: (transactions: UncategorizedTransaction[]) => void;
+  onImport: (transactions: ParsedTransaction[]) => void;
   uncategorizedTransactions: UncategorizedTransaction[];
-  onConfirm: (transactions: Transaction[]) => void;
+  onConfirm: (transactions: Omit<Transaction, 'id'|'type'>[]) => void;
   categories: string[];
   sources: string[];
 }
 
-// Mock parser for CSV files (Date,Description,Amount)
-const parseCSV = (content: string): UncategorizedTransaction[] => {
+const parsePastedText = (content: string): ParsedTransaction[] => {
     const lines = content.split('\n').slice(1); // Skip header
-    return lines.map((line, index) => {
-        const [date, description, amountStr] = line.split(',');
-        if (date && description && amountStr) {
+    return lines.map((line) => {
+        const [dateStr, amountStr, importId, description] = line.split('\t');
+        if (dateStr && amountStr && importId && description) {
+            const [day, month, year] = dateStr.split('/');
+            if (!day || !month || !year) return null;
+            
+            const date = new Date(`${year}-${month}-${day}T12:00:00Z`).toISOString().split('T')[0];
+            
+            let sanitizedAmountStr = amountStr.trim();
+            // For Brazilian format "1.234,56", convert to "1234.56"
+            if (sanitizedAmountStr.includes(',') && sanitizedAmountStr.includes('.')) {
+                sanitizedAmountStr = sanitizedAmountStr.replace(/\./g, '').replace(',', '.');
+            } else if (sanitizedAmountStr.includes(',')) {
+                // For format "1234,56", convert to "1234.56"
+                sanitizedAmountStr = sanitizedAmountStr.replace(',', '.');
+            }
+            // For format "-117.99", no change is needed. parseFloat handles it.
+            const amount = parseFloat(sanitizedAmountStr);
+
+            if (isNaN(amount)) return null;
+
             return {
-                id: `${new Date().getTime()}-${index}`,
-                date: new Date(date).toISOString().split('T')[0],
+                date,
                 description: description.trim(),
-                amount: parseFloat(amountStr),
+                amount: Math.abs(amount),
+                entryType: amount < 0 ? 'expense' : 'income',
+                importId: importId.trim(),
             };
         }
         return null;
-    }).filter((t): t is UncategorizedTransaction => t !== null);
+    }).filter((t): t is ParsedTransaction => t !== null);
 };
 
-const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransactions, onConfirm, categories, sources }) => {
-    const [fileContent, setFileContent] = useState<string | null>(null);
-    const [fileName, setFileName] = useState<string>('');
-    // FIX: Change state type to allow partial updates for transaction properties, fixing type errors on access.
-    const [categorized, setCategorized] = useState<Record<string, Partial<{ category: string; source: string; ignored: boolean }>>>({});
 
-    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            setFileName(file.name);
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const text = e.target?.result as string;
-                setFileContent(text);
-                const parsed = parseCSV(text);
-                onImport(parsed);
-            };
-            reader.readAsText(file);
-        }
+const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransactions, onConfirm, categories, sources }) => {
+    const [pastedContent, setPastedContent] = useState('');
+    const [categorized, setCategorized] = useState<Record<string, Partial<{ category: string; source: string; ignored: boolean; description: string }>>>({});
+
+    const handleProcessPastedData = () => {
+        const parsed = parsePastedText(pastedContent);
+        onImport(parsed);
     };
     
-    const updateTransaction = useCallback((id: string, updates: Partial<{ category: string; source: string; ignored: boolean }>) => {
+    const updateTransaction = useCallback((id: string, updates: Partial<{ category: string; source: string; ignored: boolean; description: string }>) => {
         setCategorized(prev => ({
             ...prev,
             [id]: { ...prev[id], ...updates }
@@ -58,45 +64,63 @@ const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransact
     }, []);
 
     const handleConfirm = () => {
-        const newTransactions: Transaction[] = uncategorizedTransactions
-            .filter(t => !categorized[t.id]?.ignored)
+        const newTransactions: Omit<Transaction, 'id' | 'type'>[] = uncategorizedTransactions
+            .filter(t => !categorized[t.id]?.ignored && categorized[t.id]?.category)
             .map(t => ({
-                ...t,
-                category: categorized[t.id]?.category || 'Outros',
+                description: categorized[t.id]?.description ?? t.description,
+                amount: t.amount,
+                date: t.date,
+                category: categorized[t.id]?.category as string,
                 source: categorized[t.id]?.source || sources[0],
-                type: TransactionType.Variable,
+                entryType: 'expense', // Assuming all reconciled are expenses
+                importId: t.importId,
             }));
         onConfirm(newTransactions);
         setCategorized({});
+        setPastedContent('');
     };
 
-    const allCategorized = uncategorizedTransactions.every(t => categorized[t.id] && (categorized[t.id].category || categorized[t.id].ignored));
+    const allCategorized = uncategorizedTransactions.length > 0 && uncategorizedTransactions.every(t => categorized[t.id] && (categorized[t.id].category || categorized[t.id].ignored));
 
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-slate-100">Import & Reconcile</h1>
             
-            <Card title="Upload Bank Statement">
-                 <div className="flex flex-col items-center p-6 border-2 border-dashed border-neutral rounded-lg">
-                    <p className="mb-2 text-slate-400">Upload a CSV file with columns: Date, Description, Amount</p>
-                    <input type="file" id="file-upload" className="hidden" accept=".csv" onChange={handleFileChange} />
-                    <label htmlFor="file-upload" className="cursor-pointer bg-primary text-slate-900 px-4 py-2 rounded-lg font-semibold hover:bg-secondary transition-transform transform hover:-translate-y-0.5">
-                        Choose File
-                    </label>
-                    {fileName && <p className="mt-2 text-sm text-slate-500">{fileName}</p>}
+            <Card title="Paste Bank Statement">
+                 <div className="flex flex-col gap-4">
+                    <p className="text-slate-400">Copy the data from your bank statement (including the header) and paste it below.</p>
+                    <textarea 
+                      className="w-full h-48 p-3 bg-neutral/50 border border-neutral rounded-md shadow-sm focus:ring-primary focus:border-primary sm:text-sm text-slate-200 placeholder-slate-400 font-mono"
+                      placeholder="Data	Valor	Identificador	Descrição..."
+                      value={pastedContent}
+                      onChange={e => setPastedContent(e.target.value)}
+                    />
+                    <div className="text-right">
+                        <Button onClick={handleProcessPastedData} disabled={!pastedContent}>
+                            Process Data
+                        </Button>
+                    </div>
                 </div>
             </Card>
 
             {uncategorizedTransactions.length > 0 && (
                 <Card title="Reconciliation">
+                    <p className="text-sm text-slate-400 mb-4">The system has automatically handled fixed bills and internal transfers. Please categorize the remaining transactions.</p>
                     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                         {uncategorizedTransactions.map(t => {
                             const state = categorized[t.id] || {};
+                            const currentDescription = state.description ?? t.description;
                             return (
                                 <div key={t.id} className={`p-4 rounded-lg grid grid-cols-1 md:grid-cols-5 gap-4 items-center transition-all ${state.ignored ? 'bg-neutral/20 opacity-60' : 'bg-neutral/50'}`}>
                                     <div className="md:col-span-2">
-                                        <p className="font-semibold text-slate-200">{t.description}</p>
-                                        <p className="text-sm text-slate-400">{t.date}</p>
+                                        <input
+                                            type="text"
+                                            value={currentDescription}
+                                            onChange={e => updateTransaction(t.id, { description: e.target.value })}
+                                            className="w-full bg-transparent p-1 -ml-1 border border-transparent rounded focus:border-primary focus:outline-none focus:bg-slate-800 text-slate-200 font-semibold"
+                                            disabled={state.ignored}
+                                        />
+                                        <p className="text-sm text-slate-400 pl-1">{t.date}</p>
                                     </div>
                                     <div className="font-bold text-lg text-danger">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(t.amount)}</div>
                                     <div className="md:col-span-2 flex gap-4 items-end">
@@ -107,7 +131,7 @@ const ImportPage: React.FC<ImportPageProps> = ({ onImport, uncategorizedTransact
                                             disabled={state.ignored}
                                         >
                                             <option value="">Select Category</option>
-                                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                            {categories.filter(c => c !== 'Renda').map(c => <option key={c} value={c}>{c}</option>)}
                                         </Select>
                                         <div className="flex items-end pb-2">
                                             <button 

@@ -7,7 +7,7 @@ import { PlusIcon, CheckCircleIcon, EditIcon, ChevronLeftIcon, ChevronRightIcon 
 interface DashboardProps {
   monthlyBills: MonthlyBill[];
   transactions: Transaction[];
-  onSetBillPaid: (billId: string, paidDate: string) => void;
+  onSetBillPaid: (billId: string, paidDate: string, amount?: number) => void;
   onAddTransaction: (transaction: Omit<Transaction, 'id' | 'type'>) => void;
   onUpdateMonthlyBillAmount: (billId: string, newAmount: number) => void;
   categories: string[];
@@ -28,6 +28,7 @@ const ManualEntryForm: React.FC<{onAddTransaction: DashboardProps['onAddTransact
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [category, setCategory] = useState(categories[0] || '');
     const [source, setSource] = useState(sources[0] || '');
+    const [entryType, setEntryType] = useState<'expense' | 'income'>('expense');
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -38,6 +39,7 @@ const ManualEntryForm: React.FC<{onAddTransaction: DashboardProps['onAddTransact
                 date,
                 category,
                 source,
+                entryType,
             });
             onClose();
         }
@@ -46,6 +48,12 @@ const ManualEntryForm: React.FC<{onAddTransaction: DashboardProps['onAddTransact
     return (
         <form onSubmit={handleSubmit} className="space-y-4">
             <h3 className="text-lg font-bold text-slate-100">Add Manual Transaction</h3>
+            
+            <div className="flex gap-2 rounded-lg bg-neutral/50 p-1">
+                <button type="button" onClick={() => setEntryType('expense')} className={`flex-1 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'expense' ? 'bg-danger text-white' : 'text-slate-400 hover:bg-neutral'}`}>Expense</button>
+                <button type="button" onClick={() => setEntryType('income')} className={`flex-1 p-2 rounded-md text-sm font-semibold transition-colors ${entryType === 'income' ? 'bg-success text-white' : 'text-slate-400 hover:bg-neutral'}`}>Income</button>
+            </div>
+
             <Input label="Description" id="desc" type="text" value={description} onChange={e => setDescription(e.target.value)} required />
             <Input label="Amount" id="amount" type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} required />
             <Input label="Date" id="date" type="date" value={date} onChange={e => setDate(e.target.value)} required />
@@ -68,9 +76,9 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, transactions, onSet
     const [editingBill, setEditingBill] = useState<{id: string, amount: string} | null>(null);
 
     const { totalIncome, totalExpenses, balance } = useMemo(() => {
-        const totalIncome = 0; // Assuming no income tracking for now
-        const totalExpenses = transactions.reduce((acc, t) => acc + t.amount, 0);
-        return { totalIncome, totalExpenses, balance: totalIncome - totalExpenses };
+        const income = transactions.filter(t => t.entryType === 'income').reduce((acc, t) => acc + t.amount, 0);
+        const expenses = transactions.filter(t => t.entryType === 'expense').reduce((acc, t) => acc + t.amount, 0);
+        return { totalIncome: income, totalExpenses: expenses, balance: income - expenses };
     }, [transactions]);
 
     const { paidAmount, pendingAmount } = useMemo(() => {
@@ -86,7 +94,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, transactions, onSet
     
     const spendingByCategory = useMemo(() => {
         const categoryMap: { [key: string]: number } = {};
-        transactions.forEach(t => {
+        transactions.filter(t => t.entryType === 'expense').forEach(t => {
             categoryMap[t.category] = (categoryMap[t.category] || 0) + t.amount;
         });
         return Object.entries(categoryMap).map(([name, value]) => ({ name, value }));
@@ -138,7 +146,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, transactions, onSet
                 </Card>
                 <Card className="border-t-4 border-info">
                     <h3 className="text-lg font-semibold text-slate-300">Current Balance</h3>
-                    <p className="text-3xl font-bold text-white">{formatCurrency(balance)}</p>
+                    <p className={`text-3xl font-bold ${balance >= 0 ? 'text-white' : 'text-danger'}`}>{formatCurrency(balance)}</p>
                 </Card>
             </div>
 
@@ -209,7 +217,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, transactions, onSet
                             </PieChart>
                         </ResponsiveContainer>
                     ) : (
-                         <div className="flex items-center justify-center h-full text-slate-400">No transactions this month.</div>
+                         <div className="flex items-center justify-center h-full text-slate-400">No expenses this month.</div>
                     )}
                 </Card>
             </div>
@@ -226,7 +234,10 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, transactions, onSet
                                         <p className="font-semibold text-slate-200">{t.description}</p>
                                         <p className="text-sm text-slate-400">{t.date} - <span className="font-medium text-primary/80">{t.category}</span></p>
                                     </div>
-                                    <span className="font-bold text-lg text-danger">{formatCurrency(t.amount)}</span>
+                                    <span className={`font-bold text-lg ${t.entryType === 'income' ? 'text-success' : 'text-danger'}`}>
+                                      {t.entryType === 'income' ? '+' : '-'}
+                                      {formatCurrency(t.amount)}
+                                    </span>
                                 </li>
                             ))}
                         </ul>

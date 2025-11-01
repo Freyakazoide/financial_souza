@@ -31,13 +31,15 @@ export interface MonthlyBill {
 }
 
 export interface Transaction {
-  id: string;
+  id:string;
   description: string;
   amount: number;
   date: string; // YYYY-MM-DD
   category: string;
   source: string;
   type: TransactionType;
+  entryType: 'income' | 'expense';
+  importId?: string; // from bank statement to prevent duplicates
 }
 
 export interface UncategorizedTransaction {
@@ -46,6 +48,7 @@ export interface UncategorizedTransaction {
   description: string;
   amount: number;
   suggestedCategory?: string;
+  importId: string;
 }
 
 export interface SpendingPattern {
@@ -56,3 +59,11 @@ export interface SpendingPattern {
 }
 
 export type View = 'dashboard' | 'history' | 'import' | 'settings';
+
+export interface ParsedTransaction {
+  date: string;
+  description: string;
+  amount: number;
+  entryType: 'income' | 'expense';
+  importId: string;
+}

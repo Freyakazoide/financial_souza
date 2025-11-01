@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { View, FixedBill, MonthlyBill, Transaction, TransactionStatus, TransactionType, UncategorizedTransaction, SpendingPattern } from './types';
+import { View, FixedBill, MonthlyBill, Transaction, TransactionStatus, TransactionType, UncategorizedTransaction, SpendingPattern, ParsedTransaction } from './types';
 import { DashboardIcon, HistoryIcon, ImportIcon, SettingsIcon } from './components/icons';
 import Dashboard from './components/Dashboard';
 import HistoryPage from './components/HistoryPage';
@@ -14,11 +14,11 @@ const initialFixedBills: FixedBill[] = [
     { id: 'fb4', name: 'CELESC - Apto 507', defaultValue: 161.40, dueDay: 25 },
     { id: 'fb5', name: 'UNINTER - Marketing Digital', defaultValue: 204.92, dueDay: 5 },
     { id: 'fb6', name: 'Telefone [TIM] [ISA]', defaultValue: 62.99, dueDay: 10 },
-    { id: 'fb7', name: 'Parcela Ford KA 52/60', defaultValue: 866.90, dueDay: 28 },
+    { id: 'fb7', name: 'Parcela Ford KA 52/60', defaultValue: 866.90, dueDay: 28 }, // Matches BANCO VOTORANTIM S/A
     { id: 'fb8', name: 'DAS - PJ', defaultValue: 80.90, dueDay: 20 },
 ];
 
-const initialCategories: string[] = ['Moradia', 'Transporte', 'Alimentação', 'Lazer', 'Dívidas', 'Saúde', 'Educação', 'PJ', 'Outros'];
+const initialCategories: string[] = ['Moradia', 'Transporte', 'Alimentação', 'Lazer', 'Dívidas', 'Saúde', 'Educação', 'PJ', 'Renda', 'Outros'];
 const initialSources: string[] = ['Cartão Nubank', 'Conta Corrente BB', 'Dinheiro', 'Conta PJ'];
 
 const App: React.FC = () => {
@@ -75,11 +75,12 @@ const App: React.FC = () => {
       setMonthlyBills(prevBills => prevBills.map(b => b.id === billId ? { ...b, amount: newAmount } : b));
     };
 
-    const handleSetBillPaid = (billId: string, paidDate: string) => {    
+    const handleSetBillPaid = (billId: string, paidDate: string, amount?: number, importId?: string) => {    
       setMonthlyBills(prevBills => 
         prevBills.map(b => {
           if (b.id === billId) {
-            const newBill = { ...b, status: TransactionStatus.Paid, paidDate: paidDate };
+            const finalAmount = amount ?? b.amount;
+            const newBill = { ...b, status: TransactionStatus.Paid, paidDate: paidDate, amount: finalAmount };
             
             const transactionExists = transactions.some(t => t.description === newBill.name && new Date(t.date).getMonth() + 1 === newBill.month && new Date(t.date).getFullYear() === newBill.year);
             
@@ -87,11 +88,13 @@ const App: React.FC = () => {
               const newTransaction: Transaction = {
                 id: generateId(),
                 description: newBill.name,
-                amount: newBill.amount,
+                amount: finalAmount,
                 date: paidDate,
                 category: 'Dívidas', // Default category for fixed bills
                 source: 'Conta Corrente BB', // Default source
                 type: TransactionType.Fixed,
+                entryType: 'expense',
+                importId: importId,
               };
               setTransactions(prevTransactions => [...prevTransactions, newTransaction]);
             }
@@ -103,11 +106,75 @@ const App: React.FC = () => {
     };
 
     const addTransaction = (transaction: Omit<Transaction, 'id' | 'type'>) => {
-        setTransactions([...transactions, { ...transaction, id: generateId(), type: TransactionType.Variable }]);
+        setTransactions(prev => [...prev, { ...transaction, id: generateId(), type: TransactionType.Variable }]);
     };
 
-    const confirmTransactions = (confirmed: Transaction[]) => {
-        setTransactions(prev => [...prev, ...confirmed]);
+    const processImportedTransactions = (parsed: ParsedTransaction[]) => {
+      const trulyUncategorized: UncategorizedTransaction[] = [];
+      const allImportIds = new Set(transactions.map(t => t.importId));
+      
+      const getKeywords = (name: string) => {
+          return name.toUpperCase().split(/[\s-\[\]]+/).filter(w => w.length > 2 && !['DE', 'A', 'O', 'PARA'].includes(w));
+      }
+      
+      // FIX: Explicitly type fixedBillKeywords to resolve a type inference issue causing `keywords` to be `unknown`.
+      const fixedBillKeywords: Map<string, string[]> = new Map(fixedBills.map(fb => [fb.id, getKeywords(fb.name)]));
+
+      // Hardcoded mapping for complex cases
+      const customMappings: Record<string, string> = {
+        'BANCO VOTORANTIM': 'fb7' // Maps "BANCO VOTORANTIM" to "Parcela Ford KA"
+      };
+
+      parsed.forEach(p => {
+          if (allImportIds.has(p.importId)) return; // Skip duplicates
+          if (p.description.toLowerCase().includes('pagamento de fatura')) return; // Skip internal transfers
+
+          let matchedBill = false;
+          if (p.entryType === 'expense') {
+              for (const [billId, keywords] of fixedBillKeywords.entries()) {
+                  const upperDesc = p.description.toUpperCase();
+                  if (keywords.some(kw => upperDesc.includes(kw))) {
+                      const txDate = new Date(p.date);
+                      const bill = monthlyBills.find(b => b.fixedBillId === billId && b.month === txDate.getMonth() + 1 && b.year === txDate.getFullYear());
+                      if (bill && bill.status !== TransactionStatus.Paid) {
+                          handleSetBillPaid(bill.id, p.date, p.amount, p.importId);
+                          matchedBill = true;
+                          break;
+                      }
+                  }
+              }
+              if (!matchedBill) {
+                  for (const [keyword, billId] of Object.entries(customMappings)) {
+                       const upperDesc = p.description.toUpperCase();
+                       if(upperDesc.includes(keyword)) {
+                           const txDate = new Date(p.date);
+                           const bill = monthlyBills.find(b => b.fixedBillId === billId && b.month === txDate.getMonth() + 1 && b.year === txDate.getFullYear());
+                           if (bill && bill.status !== TransactionStatus.Paid) {
+                               handleSetBillPaid(bill.id, p.date, p.amount, p.importId);
+                               matchedBill = true;
+                               break;
+                           }
+                       }
+                  }
+              }
+          }
+
+          if (!matchedBill && p.entryType === 'expense') {
+              trulyUncategorized.push({
+                  ...p,
+                  id: generateId(),
+                  suggestedCategory: categoryPatterns[p.description.toUpperCase()],
+              });
+          }
+      });
+
+      setUncategorized(trulyUncategorized);
+  };
+
+    const confirmTransactions = (confirmed: Omit<Transaction, 'id' | 'type'>[]) => {
+        // FIX: Explicitly type newTransactions as Transaction[] to avoid potential type inference issues.
+        const newTransactions: Transaction[] = confirmed.map(t => ({...t, id: generateId(), type: TransactionType.Variable}));
+        setTransactions(prev => [...prev, ...newTransactions]);
         setUncategorized([]);
 
         const newPatterns = { ...categoryPatterns };
@@ -123,9 +190,21 @@ const App: React.FC = () => {
     const handleAnalyzePatterns = async () => {
         setIsLoadingPatterns(true);
         setSpendingPatterns(null);
-        const patterns = await analyzeSpendingPatterns(transactions);
-        setSpendingPatterns(patterns);
-        setIsLoadingPatterns(false);
+        try {
+            const patterns = await analyzeSpendingPatterns(transactions);
+            setSpendingPatterns(patterns);
+        } catch (error) {
+            console.error("Failed to analyze spending patterns:", error);
+            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred. Please check the console.";
+            setSpendingPatterns([{
+              merchant: "Analysis Failed",
+              frequency: "-",
+              totalSpent: 0,
+              insight: errorMessage
+            }]);
+        } finally {
+            setIsLoadingPatterns(false);
+        }
     };
 
     const viewingMonth = viewingDate.getMonth() + 1;
@@ -138,6 +217,7 @@ const App: React.FC = () => {
         const newDate = new Date(currentDate);
         const newMonth = direction === 'next' ? newDate.getMonth() + 1 : newDate.getMonth() -1;
         newDate.setMonth(newMonth);
+        generateMonthlyBills(newDate);
         return newDate;
       })
     }
@@ -168,11 +248,7 @@ const App: React.FC = () => {
                 />;
             case 'import':
                 return <ImportPage 
-                    onImport={(parsed) => {
-                        const newUncategorized = parsed.filter(p => !transactions.some(t => t.description === p.description && t.date === p.date && t.amount === p.amount))
-                            .map(p => ({ ...p, suggestedCategory: categoryPatterns[p.description.toUpperCase()] }));
-                        setUncategorized(newUncategorized);
-                    }}
+                    onImport={processImportedTransactions}
                     uncategorizedTransactions={uncategorized}
                     onConfirm={confirmTransactions}
                     categories={categories}
