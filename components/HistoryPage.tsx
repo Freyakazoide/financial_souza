@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Transaction, MonthlyBill, SpendingPattern } from '../types';
@@ -17,6 +18,7 @@ interface HistoryPageProps {
 const formatCurrency = (value: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
 const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, sources, spendingPatterns, onAnalyzePatterns, isLoadingPatterns }) => {
+    const [searchTerm, setSearchTerm] = useState<string>('');
     const [filterCategory, setFilterCategory] = useState<string>('all');
     const [filterSource, setFilterSource] = useState<string>('all');
     const [filterStartDate, setFilterStartDate] = useState<string>('');
@@ -24,14 +26,16 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, 
 
     const filteredTransactions = useMemo(() => {
         return allTransactions.filter(t => {
-            const transactionDate = new Date(t.date);
+            const lowerCaseSearch = searchTerm.toLowerCase();
+            if (searchTerm && !t.description.toLowerCase().includes(lowerCaseSearch) && !t.category.toLowerCase().includes(lowerCaseSearch)) return false;
             if (filterCategory !== 'all' && t.category !== filterCategory) return false;
             if (filterSource !== 'all' && t.source !== filterSource) return false;
-            if (filterStartDate && transactionDate < new Date(filterStartDate)) return false;
-            if (filterEndDate && transactionDate > new Date(filterEndDate)) return false;
+            // Use string comparison for YYYY-MM-DD dates to avoid timezone issues
+            if (filterStartDate && t.date < filterStartDate) return false;
+            if (filterEndDate && t.date > filterEndDate) return false;
             return true;
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [allTransactions, filterCategory, filterSource, filterStartDate, filterEndDate]);
+        }).sort((a, b) => b.date.localeCompare(a.date));
+    }, [allTransactions, searchTerm, filterCategory, filterSource, filterStartDate, filterEndDate]);
 
     const monthlySpendingData = useMemo(() => {
         const data: { [key: string]: number } = {};
@@ -56,17 +60,21 @@ const HistoryPage: React.FC<HistoryPageProps> = ({ allTransactions, categories, 
             <h1 className="text-3xl font-bold text-slate-100">History & Reports</h1>
             
             <Card title="Filters">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="lg:col-span-2">
+                        <Input label="Search by Description or Category" type="text" placeholder="e.g., Netflix, Alimentação..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+                    </div>
                     <Input label="Start Date" type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} />
                     <Input label="End Date" type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} />
                     <Select label="Category" value={filterCategory} onChange={e => setFilterCategory(e.target.value)}>
                         <option value="all">All Categories</option>
                         {categories.map(c => <option key={c} value={c}>{c}</option>)}
                     </Select>
-                    <Select label="Source" value={filterSource} onChange={e => setFilterSource(e.target.value)}>
+                    {/* The Source filter might need to be wrapped or the grid adjusted if it gets too crowded */}
+                    {/* <Select label="Source" value={filterSource} onChange={e => setFilterSource(e.target.value)}>
                         <option value="all">All Sources</option>
                         {sources.map(s => <option key={s} value={s}>{s}</option>)}
-                    </Select>
+                    </Select> */}
                 </div>
             </Card>
 

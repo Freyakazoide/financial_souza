@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { FixedBill, RecurringIncome } from '../types';
+import { FixedBill, RecurringIncome, Transaction } from '../types';
 import { Card, Button, Input } from './common';
-import { PlusIcon, TrashIcon, EditIcon } from './icons';
+import { PlusIcon, TrashIcon, EditIcon, CheckCircleIcon, XCircleIcon } from './icons';
 
 interface SettingsPageProps {
   fixedBills: FixedBill[];
@@ -10,18 +10,35 @@ interface SettingsPageProps {
   recurringIncomes: RecurringIncome[];
   setRecurringIncomes: React.Dispatch<React.SetStateAction<RecurringIncome[]>>;
   categories: string[];
-  setCategories: React.Dispatch<React.SetStateAction<string[]>>;
+  onAddCategory: (name: string) => void;
+  onUpdateCategory: (oldName: string, newName: string) => void;
+  onDeleteCategory: (name: string) => void;
   sources: string[];
-  setSources: React.Dispatch<React.SetStateAction<string[]>>;
+  onAddSource: (name: string) => void;
+  onUpdateSource: (oldName: string, newName: string) => void;
+  onDeleteSource: (name: string) => void;
+  allTransactions: Transaction[];
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, recurringIncomes, setRecurringIncomes, categories, setCategories, sources, setSources }) => {
+const SettingsPage: React.FC<SettingsPageProps> = ({ 
+    fixedBills, setFixedBills, 
+    recurringIncomes, setRecurringIncomes, 
+    categories, onAddCategory, onUpdateCategory, onDeleteCategory,
+    sources, onAddSource, onUpdateSource, onDeleteSource,
+    allTransactions
+}) => {
     const [newBill, setNewBill] = useState({ name: '', defaultValue: '', dueDay: '' });
     const [editingBill, setEditingBill] = useState<FixedBill | null>(null);
     const [newIncome, setNewIncome] = useState({ name: '', defaultValue: '', incomeDay: '' });
     const [editingIncome, setEditingIncome] = useState<RecurringIncome | null>(null);
+
     const [newCategory, setNewCategory] = useState('');
+    const [editingCategory, setEditingCategory] = useState<string | null>(null);
+    const [editingCategoryValue, setEditingCategoryValue] = useState('');
+
     const [newSource, setNewSource] = useState('');
+    const [editingSource, setEditingSource] = useState<string | null>(null);
+    const [editingSourceValue, setEditingSourceValue] = useState('');
 
     useEffect(() => {
         if (editingBill) {
@@ -95,49 +112,59 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, 
         }
     };
 
-    const handleRemoveBill = (id: string) => {
-        setFixedBills(fixedBills.filter(b => b.id !== id));
-        if (editingBill && editingBill.id === id) {
-            setEditingBill(null);
-        }
-    };
-
-    const handleRemoveIncome = (id: string) => {
-        setRecurringIncomes(recurringIncomes.filter(i => i.id !== id));
-        if (editingIncome && editingIncome.id === id) {
-            setEditingIncome(null);
-        }
-    };
-
+    const handleRemoveBill = (id: string) => setFixedBills(fixedBills.filter(b => b.id !== id));
+    const handleRemoveIncome = (id: string) => setRecurringIncomes(recurringIncomes.filter(i => i.id !== id));
     const handleEditBill = (bill: FixedBill) => setEditingBill(bill);
     const cancelEditBill = () => setEditingBill(null);
-
     const handleEditIncome = (income: RecurringIncome) => setEditingIncome(income);
     const cancelEditIncome = () => setEditingIncome(null);
 
-
+    // Category Handlers
     const handleAddCategory = (e: React.FormEvent) => {
         e.preventDefault();
-        if(newCategory && !categories.includes(newCategory)) {
-            setCategories([...categories, newCategory]);
+        if(newCategory) {
+            onAddCategory(newCategory);
             setNewCategory('');
         }
     };
-
-    const handleRemoveCategory = (cat: string) => {
-        setCategories(categories.filter(c => c !== cat));
+    const handleEditCategory = (name: string) => {
+        setEditingCategory(name);
+        setEditingCategoryValue(name);
+    };
+    const handleSaveCategory = () => {
+        if(editingCategory) {
+            onUpdateCategory(editingCategory, editingCategoryValue);
+            setEditingCategory(null);
+            setEditingCategoryValue('');
+        }
+    };
+    const cancelEditCategory = () => {
+        setEditingCategory(null);
+        setEditingCategoryValue('');
     };
 
+    // Source Handlers
     const handleAddSource = (e: React.FormEvent) => {
         e.preventDefault();
-        if(newSource && !sources.includes(newSource)) {
-            setSources([...sources, newSource]);
+        if(newSource) {
+            onAddSource(newSource);
             setNewSource('');
         }
     };
-
-    const handleRemoveSource = (src: string) => {
-        setSources(sources.filter(s => s !== src));
+    const handleEditSource = (name: string) => {
+        setEditingSource(name);
+        setEditingSourceValue(name);
+    };
+    const handleSaveSource = () => {
+        if(editingSource) {
+            onUpdateSource(editingSource, editingSourceValue);
+            setEditingSource(null);
+            setEditingSourceValue('');
+        }
+    };
+    const cancelEditSource = () => {
+        setEditingSource(null);
+        setEditingSourceValue('');
     };
     
     return (
@@ -200,13 +227,34 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, 
                         <Input label="New Category" value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="e.g., Groceries" />
                         <Button type="submit" className="h-10 w-12 flex-shrink-0"><PlusIcon /></Button>
                     </form>
-                     <div className="flex flex-wrap gap-2">
-                        {categories.map(c => 
-                            <span key={c} className="bg-primary/20 text-primary text-sm font-medium px-3 py-1 rounded-full flex items-center gap-2">
-                                {c} 
-                                <button onClick={() => handleRemoveCategory(c)} className="text-accent hover:text-white font-bold">&times;</button>
-                            </span>
-                        )}
+                     <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                        {categories.map(c => {
+                            const isEditing = editingCategory === c;
+                            const isUsed = allTransactions.some(t => t.category === c);
+                            const isProtected = c === 'Renda';
+                            return (
+                                <div key={c} className="flex justify-between items-center p-2 bg-neutral/50 rounded-lg">
+                                    {isEditing ? (
+                                        <Input label="" value={editingCategoryValue} onChange={e => setEditingCategoryValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSaveCategory()} autoFocus />
+                                    ) : (
+                                        <span className="text-slate-200 px-2">{c}</span>
+                                    )}
+                                    <div className="flex gap-2 items-center">
+                                        {isEditing ? (
+                                            <>
+                                                <Button variant="ghost" className="p-2 h-auto" onClick={handleSaveCategory}><CheckCircleIcon className="w-5 h-5"/></Button>
+                                                <Button variant="secondary" className="p-2 h-auto" onClick={cancelEditCategory}><XCircleIcon className="w-5 h-5"/></Button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Button variant="ghost" className="p-2 h-auto" onClick={() => handleEditCategory(c)} disabled={isProtected}><EditIcon /></Button>
+                                                <Button variant="danger" className="p-2 h-auto" onClick={() => onDeleteCategory(c)} disabled={isUsed || isProtected} title={isUsed ? 'Cannot delete: in use' : ''}><TrashIcon /></Button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </Card>
 
@@ -215,13 +263,33 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ fixedBills, setFixedBills, 
                         <Input label="New Source" value={newSource} onChange={e => setNewSource(e.target.value)} placeholder="e.g., Savings Account" />
                         <Button type="submit" className="h-10 w-12 flex-shrink-0"><PlusIcon /></Button>
                     </form>
-                    <div className="flex flex-wrap gap-2">
-                        {sources.map(s => 
-                            <span key={s} className="bg-info/20 text-info text-sm font-medium px-3 py-1 rounded-full flex items-center gap-2">
-                                {s} 
-                                <button onClick={() => handleRemoveSource(s)} className="text-sky-300 hover:text-white font-bold">&times;</button>
-                            </span>
-                        )}
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+                        {sources.map(s => {
+                             const isEditing = editingSource === s;
+                             const isUsed = allTransactions.some(t => t.source === s);
+                             return (
+                                <div key={s} className="flex justify-between items-center p-2 bg-neutral/50 rounded-lg">
+                                    {isEditing ? (
+                                        <Input label="" value={editingSourceValue} onChange={e => setEditingSourceValue(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSaveSource()} autoFocus />
+                                    ) : (
+                                        <span className="text-slate-200 px-2">{s}</span>
+                                    )}
+                                    <div className="flex gap-2 items-center">
+                                        {isEditing ? (
+                                            <>
+                                                <Button variant="ghost" className="p-2 h-auto" onClick={handleSaveSource}><CheckCircleIcon className="w-5 h-5"/></Button>
+                                                <Button variant="secondary" className="p-2 h-auto" onClick={cancelEditSource}><XCircleIcon className="w-5 h-5"/></Button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Button variant="ghost" className="p-2 h-auto" onClick={() => handleEditSource(s)}><EditIcon /></Button>
+                                                <Button variant="danger" className="p-2 h-auto" onClick={() => onDeleteSource(s)} disabled={isUsed} title={isUsed ? 'Cannot delete: in use' : ''}><TrashIcon /></Button>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 </Card>
             </div>

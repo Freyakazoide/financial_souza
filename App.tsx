@@ -290,6 +290,51 @@ const App: React.FC = () => {
         }
     };
 
+    // Category and Source Management
+    const handleAddCategory = (name: string) => {
+        if (name.trim() && !categories.some(c => c.toLowerCase() === name.toLowerCase())) {
+            setCategories(prev => [...prev, name.trim()].sort());
+        }
+    };
+
+    const handleUpdateCategory = (oldName: string, newName: string) => {
+        if (oldName === 'Renda' || !newName.trim() || categories.some(c => c.toLowerCase() === newName.toLowerCase() && c.toLowerCase() !== oldName.toLowerCase())) {
+            return;
+        }
+        setCategories(prev => prev.map(c => c === oldName ? newName.trim() : c).sort());
+        setTransactions(prev => prev.map(t => t.category === oldName ? { ...t, category: newName.trim() } : t));
+    };
+
+    const handleDeleteCategory = (name: string) => {
+        if (name === 'Renda' || transactions.some(t => t.category === name)) {
+            alert(`Category "${name}" cannot be deleted because it is in use or protected.`);
+            return;
+        }
+        setCategories(prev => prev.filter(c => c !== name));
+    };
+    
+    const handleAddSource = (name: string) => {
+        if (name.trim() && !sources.some(s => s.toLowerCase() === name.toLowerCase())) {
+            setSources(prev => [...prev, name.trim()].sort());
+        }
+    };
+
+    const handleUpdateSource = (oldName: string, newName: string) => {
+        if (!newName.trim() || sources.some(s => s.toLowerCase() === newName.toLowerCase() && s.toLowerCase() !== oldName.toLowerCase())) {
+            return;
+        }
+        setSources(prev => prev.map(s => s === oldName ? newName.trim() : s).sort());
+        setTransactions(prev => prev.map(t => t.source === oldName ? { ...t, source: newName.trim() } : t));
+    };
+
+    const handleDeleteSource = (name: string) => {
+        if (transactions.some(t => t.source === name)) {
+            alert(`Source "${name}" cannot be deleted because it is currently in use.`);
+            return;
+        }
+        setSources(prev => prev.filter(s => s !== name));
+    };
+
     const viewingMonth = viewingDate.getMonth() + 1;
     const viewingYear = viewingDate.getFullYear();
     const viewingMonthBills = useMemo(() => monthlyBills.filter(b => b.month === viewingMonth && b.year === viewingYear), [monthlyBills, viewingMonth, viewingYear]);
@@ -350,9 +395,14 @@ const App: React.FC = () => {
                     recurringIncomes={recurringIncomes}
                     setRecurringIncomes={setRecurringIncomes}
                     categories={categories}
-                    setCategories={setCategories}
+                    onAddCategory={handleAddCategory}
+                    onUpdateCategory={handleUpdateCategory}
+                    onDeleteCategory={handleDeleteCategory}
                     sources={sources}
-                    setSources={setSources}
+                    onAddSource={handleAddSource}
+                    onUpdateSource={handleUpdateSource}
+                    onDeleteSource={handleDeleteSource}
+                    allTransactions={transactions}
                 />;
             default:
                 return <Dashboard 

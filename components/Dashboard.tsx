@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { MonthlyBill, Transaction, TransactionStatus, MonthlyIncome, IncomeStatus } from '../types';
@@ -22,7 +21,10 @@ interface DashboardProps {
 
 const COLORS = ['#2dd4bf', '#99f6e4', '#0d9488', '#facc15', '#f87171', '#38bdf8', '#a78bfa', '#fb923c'];
 
-const formatCurrency = (value: number) => {
+const formatCurrency = (value?: number | null) => {
+    if (value == null || isNaN(value)) {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(0);
+    }
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
