@@ -141,12 +141,13 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
     
         const categorySpending = transactions
             .filter(t => t.entryType === 'expense' && t.category !== 'Poupança' && t.category !== 'Dívidas')
-            // FIX: Explicitly type the accumulator for the reduce function to prevent type inference issues.
-            // This resolves downstream errors where the `spent` property was not being correctly identified as a number.
-            .reduce((acc: Record<string, number>, t) => {
+            // FIX: Explicitly typing the initial value of `reduce` ensures TypeScript
+            // correctly infers the accumulator type as `Record<string, number>`, fixing
+            // downstream errors where `spent` was not treated as a number.
+            .reduce((acc, t) => {
                 acc[t.category] = (acc[t.category] || 0) + t.amount;
                 return acc;
-            }, {});
+            }, {} as Record<string, number>);
     
         return Object.entries(categorySpending)
             .map(([name, spent]) => ({

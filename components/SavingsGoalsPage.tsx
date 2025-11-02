@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { SavingsGoal, Transaction } from '../types';
 import { Card, Button, Input, Select } from './common';
@@ -49,6 +48,7 @@ const SavingsGoalsPage: React.FC<SavingsGoalsPageProps> = ({ savingsGoals, setSa
     const [newGoalName, setNewGoalName] = useState('');
     const [newGoalTarget, setNewGoalTarget] = useState('');
     const [depositGoal, setDepositGoal] = useState<SavingsGoal | null>(null);
+    const [targetMonths, setTargetMonths] = useState<Record<string, string>>({});
     
     const generateId = () => Math.random().toString(36).substring(2, 9);
 
@@ -89,6 +89,10 @@ const SavingsGoalsPage: React.FC<SavingsGoalsPageProps> = ({ savingsGoals, setSa
         setDepositGoal(null); // Close modal
     };
     
+    const handleTargetMonthsChange = (goalId: string, value: string) => {
+        setTargetMonths(prev => ({ ...prev, [goalId]: value }));
+    };
+
     const goalsWithProgress = useMemo(() => {
         return savingsGoals.map(goal => {
             const currentAmount = allTransactions
@@ -120,7 +124,22 @@ const SavingsGoalsPage: React.FC<SavingsGoalsPageProps> = ({ savingsGoals, setSa
                 {goalsWithProgress.length > 0 ? (
                     <div className="space-y-6">
                         {goalsWithProgress.map(goal => {
-                             const percentage = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+                            const percentage = Math.min((goal.currentAmount / goal.targetAmount) * 100, 100);
+                            const remainingAmount = goal.targetAmount - goal.currentAmount;
+                            
+                            const ninetyDaysAgo = new Date();
+                            ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+                            
+                            const recentDeposits = allTransactions
+                                .filter(t => t.goalId === goal.id && t.entryType === 'expense' && new Date(t.date) >= ninetyDaysAgo)
+                                .reduce((sum, t) => sum + t.amount, 0);
+                            
+                            const averageMonthlyDeposit = recentDeposits / 3;
+                            const estimatedMonths = (averageMonthlyDeposit > 0 && remainingAmount > 0) ? remainingAmount / averageMonthlyDeposit : 0;
+
+                            const targetMonthValue = parseInt(targetMonths[goal.id] || '0', 10);
+                            const requiredMonthlySavings = (targetMonthValue > 0 && remainingAmount > 0) ? remainingAmount / targetMonthValue : 0;
+
                             return (
                                 <div key={goal.id} className="p-4 bg-neutral/50 rounded-lg">
                                     <div className="flex justify-between items-start">
@@ -138,6 +157,38 @@ const SavingsGoalsPage: React.FC<SavingsGoalsPageProps> = ({ savingsGoals, setSa
                                             <div className="bg-primary h-full rounded-full transition-all duration-500 text-right pr-2 text-xs font-bold text-slate-900 flex items-center justify-end" style={{ width: `${percentage}%` }}>
                                                 {percentage.toFixed(0)}%
                                             </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 pt-4 border-t border-neutral grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div>
+                                            <h4 className="text-md font-semibold text-slate-300 mb-2">Estimativa Automática</h4>
+                                            {estimatedMonths > 0 ? (
+                                                <p className="text-slate-200">
+                                                    Com base nos seus depósitos recentes, você pode atingir esta meta em 
+                                                    <span className="text-primary font-bold text-lg"> ~{Math.ceil(estimatedMonths)} meses</span>.
+                                                </p>
+                                            ) : (
+                                                <p className="text-sm text-slate-400">Comece a depositar regularmente para ver uma estimativa de quando você alcançará sua meta.</p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h4 className="text-md font-semibold text-slate-300 mb-2">Planeje sua Meta</h4>
+                                            <div className="flex items-center gap-2">
+                                                <Input 
+                                                    label="Atingir em (meses):" 
+                                                    type="number" 
+                                                    id={`target-months-${goal.id}`}
+                                                    value={targetMonths[goal.id] || ''}
+                                                    onChange={e => handleTargetMonthsChange(goal.id, e.target.value)}
+                                                    placeholder="ex: 12"
+                                                />
+                                            </div>
+                                            {requiredMonthlySavings > 0 && (
+                                                <p className="text-slate-200 mt-2">
+                                                    Você precisará poupar 
+                                                    <span className="text-accent font-bold text-lg"> {formatCurrency(requiredMonthlySavings)}</span> por mês.
+                                                </p>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
