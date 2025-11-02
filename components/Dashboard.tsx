@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { MonthlyBill, Transaction, TransactionStatus, MonthlyIncome, IncomeStatus, Budget, SavingsGoal } from '../types';
 import { Card, Button, Input, Select } from './common';
@@ -141,12 +140,12 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
     
         const categorySpending = transactions
             .filter(t => t.entryType === 'expense' && t.category !== 'Poupança' && t.category !== 'Dívidas')
-            // FIX: Explicitly typing the initial value of `reduce` ensures TypeScript
-            // correctly infers the accumulator type as `Record<string, number>`, fixing
-            // downstream errors where `spent` was not treated as a number.
             .reduce((acc, t) => {
                 acc[t.category] = (acc[t.category] || 0) + t.amount;
                 return acc;
+            // FIX: Explicitly typing the initial value of `reduce` ensures TypeScript
+            // correctly infers the accumulator type as `Record<string, number>`, fixing
+            // downstream errors where `spent` was not treated as a number.
             }, {} as Record<string, number>);
     
         return Object.entries(categorySpending)
@@ -205,7 +204,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 <Card className="border-t-4 border-success">
                     <h3 className="text-lg font-semibold text-slate-300">Receita Total</h3>
                     <p className="text-3xl font-bold text-white">{formatCurrency(totalIncome)}</p>
@@ -214,7 +213,7 @@ const Dashboard: React.FC<DashboardProps> = ({ monthlyBills, monthlyIncomes, tra
                     <h3 className="text-lg font-semibold text-slate-300">Despesas Totais</h3>
                     <p className="text-3xl font-bold text-white">{formatCurrency(totalExpenses)}</p>
                 </Card>
-                <Card className="border-t-4 border-info">
+                <Card className="border-t-4 border-info sm:col-span-2 lg:col-span-1">
                     <h3 className="text-lg font-semibold text-slate-300">Saldo Atual</h3>
                     <p className={`text-3xl font-bold ${balance >= 0 ? 'text-white' : 'text-danger'}`}>{formatCurrency(balance)}</p>
                 </Card>
